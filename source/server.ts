@@ -94,6 +94,7 @@ app.get("/monsters/:type/", async (request, response) => {
         const entities = []
         for (const result of results) {
             entities.push({
+                hp: result.hp,
                 id: result.name,
                 lastSeen: new Date(result.lastSeen).toISOString(),
                 map: result.map,
