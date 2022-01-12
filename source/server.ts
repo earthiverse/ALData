@@ -68,6 +68,7 @@ app.get("/monsters/:type/", async (request, response) => {
     const privateTypes: MonsterName[] = ["cutebee", "goldenbat"]
     for (let i = types.length - 1; i >= 0; i--) {
         const type = types[i]
+        if (!type) continue
         if (privateTypes.includes(type)) types.splice(i, 1)
     }
     if (types.length == 0) {
