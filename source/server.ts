@@ -36,13 +36,18 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
 }
 
 // Setup Character Retrieval
-app.get("/characters/:id/", async (request, response) => {
-    const name = request.params.id
+app.get("/characters/:ids/", async (request, response) => {
+    const names = request.params.ids.split(",")
 
     // Don't share information about these characters
     const privateCharacters: string[] = []
-    if (privateCharacters.includes(name)) {
-        response.status(403).send({})
+    for (let i = names.length - 1; i >= 0; i--) {
+        const name = names[i]
+        if (!name) continue
+        if (privateCharacters.includes(name)) names.splice(i, 1)
+    }
+    if (privateCharacters.length == 0) {
+        response.status(403).send([])
         return
     }
 
