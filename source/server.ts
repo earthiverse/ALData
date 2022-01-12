@@ -42,7 +42,7 @@ app.get("/characters/:id/", async (request, response) => {
     if (result) {
         response.status(200).send({
             id: result.name,
-            lastSeen: result.lastSeen,
+            lastSeen: new Date(result.lastSeen).toISOString(),
             map: result.map,
             serverIdentifier: result.serverIdentifier,
             serverRegion: result.serverRegion,
