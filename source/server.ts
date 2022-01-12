@@ -46,22 +46,30 @@ app.get("/characters/:ids/", async (request, response) => {
         if (!name) continue
         if (privateCharacters.includes(name)) names.splice(i, 1)
     }
-    if (privateCharacters.length == 0) {
+    if (names.length == 0) {
         response.status(403).send([])
         return
     }
 
-    const result = await AL.PlayerModel.findOne({ name: name }).lean().exec()
-    if (result) {
-        response.status(200).send({
-            id: result.name,
-            lastSeen: new Date(result.lastSeen).toISOString(),
-            map: result.map,
-            serverIdentifier: result.serverIdentifier,
-            serverRegion: result.serverRegion,
-            x: result.x,
-            y: result.y
-        })
+    const results = await AL.PlayerModel.find({ name: { $in: names } }).lean().exec()
+    if (results) {
+        const characters = []
+        for (const result of results) {
+            characters.push({
+                id: result.name,
+                lastSeen: new Date(result.lastSeen).toISOString(),
+                map: result.map,
+                serverIdentifier: result.serverIdentifier,
+                serverRegion: result.serverRegion,
+                x: result.x,
+                y: result.y
+            })
+        }
+        response.status(200).send(characters)
+        return
+    } else {
+        response.status(200).send([])
+        return
     }
 })
 
