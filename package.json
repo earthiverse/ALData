@@ -18,13 +18,14 @@
   },
   "homepage": "https://github.com/earthiverse/ALData#readme",
   "dependencies": {
-    "alclient": "^0.9.16",
+    "alclient": "^0.9.17",
     "body-parser": "^1.19.1",
     "cors": "^2.8.5",
     "express": "^4.17.2",
     "helmet": "^5.0.1",
     "mongodb": "^4.3.0",
-    "mongoose": "^6.1.6"
+    "mongoose": "^6.1.6",
+    "nocache": "^3.0.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.12",

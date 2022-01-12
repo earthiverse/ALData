@@ -4,13 +4,15 @@ import bodyParser from "body-parser"
 import express from "express"
 import fs from "fs"
 import helmet from "helmet"
+import nocache from "nocache"
 
 // Setup Express
 const app = express()
-app.use(helmet())
-app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
+app.use(cors())
+app.use(helmet())
+app.use(nocache())
 
 const credentialsFile = "../credentials.json"
 const credentials = JSON.parse(fs.readFileSync(credentialsFile, "utf8"))
