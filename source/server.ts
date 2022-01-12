@@ -62,16 +62,20 @@ app.get("/characters/:id/", async (request, response) => {
 
 // Setup Monster Retrieval
 app.get("/monsters/:type/", async (request, response) => {
-    const type = request.params.type as MonsterName
+    const types: MonsterName[] = request.params.type.split(",") as MonsterName[]
 
     // Don't share information about these monsters
     const privateTypes: MonsterName[] = ["cutebee", "goldenbat"]
-    if (privateTypes.includes(type)) {
+    for (let i = types.length - 1; i >= 0; i--) {
+        const type = types[i]
+        if (privateTypes.includes(type)) types.splice(i, 1)
+    }
+    if (types.length == 0) {
         response.status(403).send([])
         return
     }
 
-    const results = await AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: type }).lean().exec()
+    const results = await AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }).lean().exec()
     if (results) {
         const entities = []
         for (const result of results) {
@@ -81,6 +85,8 @@ app.get("/monsters/:type/", async (request, response) => {
                 map: result.map,
                 serverIdentifier: result.serverIdentifier,
                 serverRegion: result.serverRegion,
+                target: result.target,
+                type: result.type,
                 x: result.x,
                 y: result.y
             })
