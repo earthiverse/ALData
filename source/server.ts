@@ -35,6 +35,11 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
     await AL.Database.connect(credentials.mongo)
 }
 
+// Redirect base URL to README
+app.get("/", async (request, response) => {
+    response.redirect("https://github.com/earthiverse/ALData#aldata")
+})
+
 // Setup Character Retrieval
 app.get("/characters/:ids/", async (request, response) => {
     const names = request.params.ids.split(",")
