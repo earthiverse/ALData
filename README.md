@@ -36,5 +36,7 @@ Examples:
 
 Returns an object containing data about a given NPC
 
+Examples:
+
 * US I Kane: `https://aldata.earthiverse.ca/npcs/US/I/Kane`
 * EU II Angel: `https://aldata.earthiverse.ca/npcs/EU/II/Angel`
