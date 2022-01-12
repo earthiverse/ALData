@@ -1,0 +1,38 @@
+{
+  "name": "aldata",
+  "description": "A website and API for getting data for use in the online MMORPG Adventure.land.",
+  "version": "1.0.0",
+  "main": "build/server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/earthiverse/ALData.git"
+  },
+  "author": "Kent Rasmussen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/earthiverse/ALData/issues"
+  },
+  "homepage": "https://github.com/earthiverse/ALData#readme",
+  "dependencies": {
+    "alclient": "^0.9.10",
+    "body-parser": "^1.19.1",
+    "cors": "^2.8.5",
+    "express": "^4.17.2",
+    "helmet": "^5.0.1",
+    "mongodb": "^4.3.0",
+    "mongoose": "^6.1.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.12",
+    "@types/express": "^4.17.13",
+    "@types/node": "^17.0.5",
+    "@typescript-eslint/eslint-plugin": "^5.9.1",
+    "@typescript-eslint/parser": "^5.9.1",
+    "eslint": "^8.6.0",
+    "typescript": "^4.5.4"
+  }
+}

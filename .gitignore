@@ -348,3 +348,12 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# build
+build/
+
+# credentials file
+credentials.json
+
+# Backup G files
+G_*.json
