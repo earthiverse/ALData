@@ -52,5 +52,24 @@ app.get("/characters/:id/", async (request, response) => {
     }
 })
 
+// Setup NPC Retrieval
+app.get("/npcs/:serverRegion/:serverIdentifier/:id/", async (request, response) => {
+    const serverRegion = request.params.serverRegion
+    const serverIdentifier = request.params.serverIdentifier
+    const name = request.params.id
+    const result = await AL.NPCModel.findOne({ name: name, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
+    if (result) {
+        response.status(200).send({
+            id: result.name,
+            lastSeen: new Date(result.lastSeen).toISOString(),
+            map: result.map,
+            serverIdentifier: result.serverIdentifier,
+            serverRegion: result.serverRegion,
+            x: result.x,
+            y: result.y
+        })
+    }
+})
+
 // Start the server
 app.listen(credentials.port)
