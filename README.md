@@ -36,12 +36,12 @@ Examples:
 
 ### /npcs/:name/:serverRegion/:serverIdentifier
 
-Returns an object containing data about a given NPC
+Returns an array containing data about given NPCs
 
 Examples:
 
 * US I Kane: `https://aldata.earthiverse.ca/npcs/Kane/US/I`
-* EU II Angel: `https://aldata.earthiverse.ca/npcs/Angel/EU/II`
+* EU II Angel and Kane: `https://aldata.earthiverse.ca/npcs/Angel,Kane/EU/II`
 
 ***
 

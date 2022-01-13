@@ -138,24 +138,41 @@ app.get("/monsters/:type/", async (request, response) => {
 })
 
 // Setup NPC Retrieval
-app.get("/npcs/:id/:serverRegion/:serverIdentifier/", async (request, response) => {
+app.get("/npcs/:ids/:serverRegion/:serverIdentifier/", async (request, response) => {
+    const ids = request.params.ids.split(",")
+
+    // Don't share information about these monsters
+    const privateIDs: string[] = []
+    for (let i = ids.length - 1; i >= 0; i--) {
+        const id = ids[i]
+        if (!id) continue
+        if (privateIDs.includes(id)) ids.splice(i, 1)
+    }
+    if (ids.length == 0) {
+        response.status(403).send([])
+        return
+    }
+
     const serverRegion = request.params.serverRegion
     const serverIdentifier = request.params.serverIdentifier
-    const name = request.params.id
-    const npc = await AL.NPCModel.findOne({ name: name, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
-    if (npc) {
-        response.status(200).send({
-            id: npc.name,
-            lastSeen: new Date(npc.lastSeen).toISOString(),
-            map: npc.map,
-            serverIdentifier: npc.serverIdentifier,
-            serverRegion: npc.serverRegion,
-            x: npc.x,
-            y: npc.y
-        })
+    const npcs = await AL.NPCModel.find({ name: { $in: ids }, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
+    if (npcs) {
+        const toReturn = []
+        for (const npc of npcs) {
+            toReturn.push({
+                id: npc.name,
+                lastSeen: new Date(npc.lastSeen).toISOString(),
+                map: npc.map,
+                serverIdentifier: npc.serverIdentifier,
+                serverRegion: npc.serverRegion,
+                x: npc.x,
+                y: npc.y
+            })
+        }
+        response.status(200).send(toReturn)
         return
     } else {
-        response.status(200).send({})
+        response.status(200).send([])
         return
     }
 })
