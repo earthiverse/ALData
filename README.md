@@ -34,14 +34,14 @@ Examples:
 
 ***
 
-### /npcs/:serverRegion/:serverIdentifier/:name
+### /npcs/:name/:serverRegion/:serverIdentifier
 
 Returns an object containing data about a given NPC
 
 Examples:
 
-* US I Kane: `https://aldata.earthiverse.ca/npcs/US/I/Kane`
-* EU II Angel: `https://aldata.earthiverse.ca/npcs/EU/II/Angel`
+* US I Kane: `https://aldata.earthiverse.ca/npcs/Kane/US/I`
+* EU II Angel: `https://aldata.earthiverse.ca/npcs/Angel/EU/II`
 
 ***
 

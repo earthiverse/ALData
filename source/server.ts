@@ -1,6 +1,5 @@
 import AL, { MonsterName, ServerIdentifier, ServerRegion } from "alclient"
 import cors from "cors"
-import bodyParser from "body-parser"
 import express from "express"
 import fs from "fs"
 import helmet from "helmet"
@@ -8,8 +7,6 @@ import nocache from "nocache"
 
 // Setup Express
 const app = express()
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
 app.use(cors())
 app.use(helmet())
 app.use(nocache())
@@ -141,7 +138,7 @@ app.get("/monsters/:type/", async (request, response) => {
 })
 
 // Setup NPC Retrieval
-app.get("/npcs/:serverRegion/:serverIdentifier/:id/", async (request, response) => {
+app.get("/npcs/:id/:serverRegion/:serverIdentifier/", async (request, response) => {
     const serverRegion = request.params.serverRegion
     const serverIdentifier = request.params.serverIdentifier
     const name = request.params.id
