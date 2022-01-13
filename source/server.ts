@@ -126,7 +126,7 @@ app.get("/monsters/:type/", async (request, response) => {
         }
         for (const respawn of respawns) {
             toReturn.push({
-                estimatedRespawn: respawn.estimatedRespawn,
+                estimatedRespawn: new Date(respawn.estimatedRespawn).toISOString(),
                 serverIdentifier: respawn.serverIdentifier,
                 serverRegion: respawn.serverRegion,
                 type: respawn.type
