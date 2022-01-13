@@ -96,24 +96,34 @@ app.get("/monsters/:type/", async (request, response) => {
         return
     }
 
-    const results = await AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }).lean().exec()
-    if (results) {
-        const entities = []
-        for (const result of results) {
-            entities.push({
-                hp: result.hp,
-                id: result.name,
-                lastSeen: new Date(result.lastSeen).toISOString(),
-                map: result.map,
-                serverIdentifier: result.serverIdentifier,
-                serverRegion: result.serverRegion,
-                target: result.target,
-                type: result.type,
-                x: result.x,
-                y: result.y
+    const entitiesP = AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }).lean().exec()
+    const respawnsP = AL.RespawnModel.find({ type: { $in: types } }).lean().exec()
+    await Promise.all([entitiesP, respawnsP])
+
+    const entities = await entitiesP
+    const respawns = await respawnsP
+
+    if (entities) {
+        const toReturn = []
+        for (const entity of entities) {
+            toReturn.push({
+                hp: entity.hp,
+                id: entity.name,
+                lastSeen: new Date(entity.lastSeen).toISOString(),
+                map: entity.map,
+                serverIdentifier: entity.serverIdentifier,
+                serverRegion: entity.serverRegion,
+                target: entity.target,
+                type: entity.type,
+                x: entity.x,
+                y: entity.y
             })
         }
-        response.status(200).send(entities)
+        for (const respawn of respawns) {
+            // toReturn.push({
+            // })
+        }
+        response.status(200).send(toReturn)
         return
     } else {
         response.status(200).send([])
@@ -126,17 +136,21 @@ app.get("/npcs/:serverRegion/:serverIdentifier/:id/", async (request, response) 
     const serverRegion = request.params.serverRegion
     const serverIdentifier = request.params.serverIdentifier
     const name = request.params.id
-    const result = await AL.NPCModel.findOne({ name: name, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
-    if (result) {
+    const npc = await AL.NPCModel.findOne({ name: name, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
+    if (npc) {
         response.status(200).send({
-            id: result.name,
-            lastSeen: new Date(result.lastSeen).toISOString(),
-            map: result.map,
-            serverIdentifier: result.serverIdentifier,
-            serverRegion: result.serverRegion,
-            x: result.x,
-            y: result.y
+            id: npc.name,
+            lastSeen: new Date(npc.lastSeen).toISOString(),
+            map: npc.map,
+            serverIdentifier: npc.serverIdentifier,
+            serverRegion: npc.serverRegion,
+            x: npc.x,
+            y: npc.y
         })
+        return
+    } else {
+        response.status(200).send({})
+        return
     }
 })
 
