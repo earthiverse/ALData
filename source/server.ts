@@ -101,7 +101,7 @@ app.get("/monsters/:type/", async (request, response) => {
     }
 
     const entitiesP = AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }).lean().exec()
-    const respawnsP = AL.RespawnModel.find({ type: { $in: types } }).lean().exec()
+    const respawnsP = AL.RespawnModel.find({ estimatedRespawn: { $gt: Date.now() }, type: { $in: types } }).lean().exec()
     await Promise.all([entitiesP, respawnsP])
 
     const entities = await entitiesP
