@@ -21,7 +21,7 @@ Examples:
 
 ***
 
-### /monsters/:types
+### /monsters/:types/:serverRegion?/:serverIdentifier?
 
 Returns an array containing data about monsters.
 
@@ -31,10 +31,11 @@ Examples:
 
 * Single Monster Type: `https://aldata.earthiverse.ca/monsters/franky`
 * Multiple Monster Types: `https://aldata.earthiverse.ca/monsters/phoenix,mvampire,fvampire`
+* US PVP snowman: `https://aldata.earthiverse.ca/monsters/snowman/US/PVP`
 
 ***
 
-### /npcs/:name/:serverRegion/:serverIdentifier
+### /npcs/:name/:serverRegion?/:serverIdentifier?
 
 Returns an array containing data about given NPCs
 
@@ -42,6 +43,7 @@ Examples:
 
 * US I Kane: `https://aldata.earthiverse.ca/npcs/Kane/US/I`
 * EU II Angel and Kane: `https://aldata.earthiverse.ca/npcs/Angel,Kane/EU/II`
+* All Servers Kane: `https://aldata.earthiverse.ca/npcs/Kane`
 
 ***
 
