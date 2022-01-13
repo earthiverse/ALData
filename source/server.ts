@@ -4,6 +4,9 @@ import express from "express"
 import fs from "fs"
 import helmet from "helmet"
 import nocache from "nocache"
+import { getCharacters } from "./characters.js"
+import { getMonsters } from "./monsters.js"
+import { getNPCs } from "./npcs.js"
 
 // Setup Express
 const app = express()
@@ -41,140 +44,30 @@ app.get("/", async (request, response) => {
 
 // Setup Character Retrieval
 app.get("/characters/:ids/", async (request, response) => {
-    const names = request.params.ids.split(",")
+    const ids = request.params.ids.split(",")
 
-    // Don't share information about these characters
-    const privateCharacters: string[] = []
-    for (let i = names.length - 1; i >= 0; i--) {
-        const name = names[i]
-        if (!name) continue
-        if (privateCharacters.includes(name)) names.splice(i, 1)
-    }
-    if (names.length == 0) {
-        response.status(403).send([])
-        return
-    }
-
-    const results = await AL.PlayerModel.find({ name: { $in: names } }).lean().exec()
-    if (results) {
-        const characters = []
-        for (const result of results) {
-            characters.push({
-                id: result.name,
-                lastSeen: new Date(result.lastSeen).toISOString(),
-                map: result.map,
-                serverIdentifier: result.serverIdentifier,
-                serverRegion: result.serverRegion,
-                x: result.x,
-                y: result.y
-            })
-        }
-        response.status(200).send(characters)
-        return
-    } else {
-        response.status(200).send([])
-        return
-    }
+    const characters = await getCharacters(ids)
+    response.status(200).send(characters)
 })
 
 // Setup Monster Retrieval
-app.get("/monsters/:type/", async (request, response) => {
-    const types: MonsterName[] = request.params.type.split(",") as MonsterName[]
+app.get("/monsters/:types/:serverRegion?/:serverIdentifier?/", async (request, response) => {
+    const types = request.params.types.split(",") as MonsterName[]
+    const serverRegion = request.params.serverRegion as ServerRegion
+    const serverIdentifier = request.params.serverIdentifier as ServerIdentifier
 
-    // Don't share information about these monsters
-    const privateTypes: MonsterName[] = [
-        // Very rare monsters
-        "cutebee", "goldenbat",
-        // Crypt monsters
-        "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "xmagefi", "xmagefz", "xmagen", "xmagex"]
-    for (let i = types.length - 1; i >= 0; i--) {
-        const type = types[i]
-        if (!type) continue
-        if (privateTypes.includes(type)) types.splice(i, 1)
-    }
-    if (types.length == 0) {
-        response.status(403).send([])
-        return
-    }
-
-    const entitiesP = AL.EntityModel.find({ lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }).lean().exec()
-    const respawnsP = AL.RespawnModel.find({ estimatedRespawn: { $gt: Date.now() }, type: { $in: types } }).lean().exec()
-    await Promise.all([entitiesP, respawnsP])
-
-    const entities = await entitiesP
-    const respawns = await respawnsP
-
-    if (entities || respawns) {
-        const toReturn = []
-        for (const entity of entities) {
-            if (entity.in && entity.in !== entity.map) continue // Don't include instanced monsters
-            toReturn.push({
-                hp: entity.hp,
-                id: entity.name,
-                lastSeen: new Date(entity.lastSeen).toISOString(),
-                map: entity.map,
-                serverIdentifier: entity.serverIdentifier,
-                serverRegion: entity.serverRegion,
-                target: entity.target,
-                type: entity.type,
-                x: entity.x,
-                y: entity.y
-            })
-        }
-        for (const respawn of respawns) {
-            toReturn.push({
-                estimatedRespawn: new Date(respawn.estimatedRespawn).toISOString(),
-                serverIdentifier: respawn.serverIdentifier,
-                serverRegion: respawn.serverRegion,
-                type: respawn.type
-            })
-        }
-        response.status(200).send(toReturn)
-        return
-    } else {
-        response.status(200).send([])
-        return
-    }
+    const monsters = await getMonsters(types, serverRegion, serverIdentifier)
+    response.status(200).send(monsters)
 })
 
 // Setup NPC Retrieval
-app.get("/npcs/:ids/:serverRegion/:serverIdentifier/", async (request, response) => {
+app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?/", async (request, response) => {
     const ids = request.params.ids.split(",")
+    const serverRegion = request.params.serverRegion as ServerRegion
+    const serverIdentifier = request.params.serverIdentifier as ServerIdentifier
 
-    // Don't share information about these monsters
-    const privateIDs: string[] = []
-    for (let i = ids.length - 1; i >= 0; i--) {
-        const id = ids[i]
-        if (!id) continue
-        if (privateIDs.includes(id)) ids.splice(i, 1)
-    }
-    if (ids.length == 0) {
-        response.status(403).send([])
-        return
-    }
-
-    const serverRegion = request.params.serverRegion
-    const serverIdentifier = request.params.serverIdentifier
-    const npcs = await AL.NPCModel.find({ name: { $in: ids }, serverIdentifier: serverIdentifier, serverRegion: serverRegion }).lean().exec()
-    if (npcs) {
-        const toReturn = []
-        for (const npc of npcs) {
-            toReturn.push({
-                id: npc.name,
-                lastSeen: new Date(npc.lastSeen).toISOString(),
-                map: npc.map,
-                serverIdentifier: npc.serverIdentifier,
-                serverRegion: npc.serverRegion,
-                x: npc.x,
-                y: npc.y
-            })
-        }
-        response.status(200).send(toReturn)
-        return
-    } else {
-        response.status(200).send([])
-        return
-    }
+    const npcs = await getNPCs(ids, serverRegion, serverIdentifier)
+    response.status(200).send(npcs)
 })
 
 // Start the server
