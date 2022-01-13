@@ -107,7 +107,7 @@ app.get("/monsters/:type/", async (request, response) => {
     const entities = await entitiesP
     const respawns = await respawnsP
 
-    if (entities) {
+    if (entities || respawns) {
         const toReturn = []
         for (const entity of entities) {
             if (entity.in && entity.in !== entity.map) continue // Don't include instanced monsters

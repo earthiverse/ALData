@@ -68,4 +68,5 @@ async function checkServersForMonsters(monsters) {
 
 // Check now, and every 30s
 checkServersForMonsters(["franky"])
-setInterval(() => { checkServersForMonsters(["franky"]) }, 30000)```
+setInterval(() => { checkServersForMonsters(["franky"]) }, 30000)
+```
