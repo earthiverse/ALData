@@ -85,7 +85,11 @@ app.get("/monsters/:type/", async (request, response) => {
     const types: MonsterName[] = request.params.type.split(",") as MonsterName[]
 
     // Don't share information about these monsters
-    const privateTypes: MonsterName[] = ["cutebee", "goldenbat"]
+    const privateTypes: MonsterName[] = [
+        // Very rare monsters
+        "cutebee", "goldenbat",
+        // Crypt monsters
+        "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "xmagefi", "xmagefz", "xmagen", "xmagex"]
     for (let i = types.length - 1; i >= 0; i--) {
         const type = types[i]
         if (!type) continue
@@ -106,6 +110,7 @@ app.get("/monsters/:type/", async (request, response) => {
     if (entities) {
         const toReturn = []
         for (const entity of entities) {
+            if (entity.in && entity.in !== entity.map) continue // Don't include instanced monsters
             toReturn.push({
                 hp: entity.hp,
                 id: entity.name,
@@ -120,8 +125,12 @@ app.get("/monsters/:type/", async (request, response) => {
             })
         }
         for (const respawn of respawns) {
-            // toReturn.push({
-            // })
+            toReturn.push({
+                estimatedRespawn: respawn.estimatedRespawn,
+                serverIdentifier: respawn.serverIdentifier,
+                serverRegion: respawn.serverRegion,
+                type: respawn.type
+            })
         }
         response.status(200).send(toReturn)
         return
