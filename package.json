@@ -21,6 +21,7 @@
     "alclient": "^0.9.18",
     "cors": "^2.8.5",
     "express": "^4.17.2",
+    "express-rate-limit": "^6.1.0",
     "helmet": "^5.0.1",
     "mongodb": "^4.3.0",
     "mongoose": "^6.1.6",

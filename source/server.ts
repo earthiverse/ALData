@@ -1,6 +1,7 @@
-import AL, { MonsterName, ServerIdentifier, ServerRegion } from "alclient"
+import AL, { MapName, MonsterName, ServerIdentifier, ServerRegion } from "alclient"
 import cors from "cors"
 import express from "express"
+import rateLimit from "express-rate-limit"
 import fs from "fs"
 import helmet from "helmet"
 import nocache from "nocache"
@@ -10,9 +11,18 @@ import { getNPCs } from "./npcs.js"
 
 // Setup Express
 const app = express()
+app.set("trust proxy", 1)
 app.use(cors())
 app.use(helmet())
 app.use(nocache())
+const apiLimiter = rateLimit({
+    legacyHeaders: false,
+    max: 15, // 15 requests
+    message: "Too many requests too fast. Please limit your requests to 15 requests / 60 seconds.",
+    standardHeaders: true,
+    windowMs: 60 * 1000, // 1 minute
+})
+app.use(apiLimiter)
 
 const credentialsFile = "../credentials.json"
 const credentials = JSON.parse(fs.readFileSync(credentialsFile, "utf8"))
@@ -21,6 +31,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
     AL.Game.loginJSONFile(credentialsFile).then(async () => {
         // Cache the GData
         await AL.Game.getGData(true, false)
+
         // Open a socket to all AL servers
         for (const sR in AL.Game.servers) {
             const serverRegion = sR as ServerRegion
@@ -31,6 +42,9 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
                 await AL.Game.startObserver(serverRegion, serverIdentifier)
             }
         }
+
+        // Prepare Pathfinding
+        AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
     })
 } else {
     // Connect to just the database
@@ -68,6 +82,58 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?/", async (request, respons
 
     const npcs = await getNPCs(ids, serverRegion, serverIdentifier)
     response.status(200).send(npcs)
+})
+
+// Setup Path Retrieval
+app.get("/path/:from/:to/", async (request, response) => {
+    const [fromMap, fromXString, fromYString] = request.params.from.split(",") as [MapName, string, string]
+    const [toMap, toXString, toYString] = request.params.to.split(",") as [MapName, string, string]
+
+    if (!AL.Game.G.maps[fromMap]) {
+        response.status(400).send([])
+        return
+    }
+    if (!AL.Game.G.maps[toMap]) {
+        response.status(400).send([])
+        return
+    }
+    if (fromXString === undefined) {
+        response.status(400).send([])
+        return
+    }
+    if (fromYString === undefined) {
+        response.status(400).send([])
+        return
+    }
+    if (toXString === undefined) {
+        response.status(400).send([])
+        return
+    }
+    if (toYString === undefined) {
+        response.status(400).send([])
+        return
+    }
+
+    const fromX = Number.parseFloat(fromXString)
+    const fromY = Number.parseFloat(fromYString)
+    const toX = Number.parseFloat(toXString)
+    const toY = Number.parseFloat(toYString)
+
+    try {
+        const path = await AL.Pathfinder.getPath({
+            map: fromMap,
+            x: fromX,
+            y: fromY
+        }, {
+            map: toMap,
+            x: toX,
+            y: toY
+        })
+        response.status(200).send(path)
+    } catch (e) {
+        console.error(e)
+        response.status(500).send([])
+    }
 })
 
 // Start the server
