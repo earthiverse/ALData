@@ -10,7 +10,7 @@ The API endpoint might be live at <https://aldata.earthiverse.ca>
 
 ## API
 
-### /characeters/:ids
+### /characters/:ids
 
 Returns an array containing data about characters.
 
@@ -25,7 +25,7 @@ Examples:
 
 Returns an array containing data about monsters.
 
-**NOTE:** `cutebee` and `golenbat` will not be returned, even if the database contains information about them.
+**NOTE:** `cutebee` and `goldenbat` will not be returned, even if the database contains information about them.
 
 Examples:
 
