@@ -36,6 +36,7 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
             hp: entity.hp,
             id: entity.name,
             lastSeen: new Date(entity.lastSeen).toISOString(),
+            level: entity.level,
             map: entity.map,
             serverIdentifier: entity.serverIdentifier,
             serverRegion: entity.serverRegion,
