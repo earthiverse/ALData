@@ -7,10 +7,10 @@ export async function getCharacters(ids: string[]) {
     ids = ids.filter(x => !PRIVATE_CHARACTERS.includes(x))
     if (ids.length == 0) return []
 
-    const filters: FilterQuery<IPlayerDocument> = { name: { $in: ids }, serverIdentifier: { $ne: "PVP" } }
+    const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids }, serverIdentifier: { $ne: "PVP" } }
 
     const characters = []
-    for (const character of await AL.PlayerModel.find(filters).lean().exec()) {
+    for (const character of await AL.PlayerModel.find(filter).lean().exec()) {
         characters.push({
             id: character.name,
             lastSeen: new Date(character.lastSeen).toISOString(),

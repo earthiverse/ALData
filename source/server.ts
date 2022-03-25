@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit"
 import fs from "fs"
 import helmet from "helmet"
 import nocache from "nocache"
+import { checkAuth } from "./auths.js"
 import { getCharacters } from "./characters.js"
 import { getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
@@ -82,6 +83,14 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?/", async (request, respons
 
     const npcs = await getNPCs(ids, serverRegion, serverIdentifier)
     response.status(200).send(npcs)
+})
+
+app.get("/auth/:id/:key", async (request, response) => {
+    const id = request.params.id
+    const key = request.params.key
+
+    const auth = await checkAuth(id, key)
+    response.status(200).send(auth)
 })
 
 // Setup Path Retrieval

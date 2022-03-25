@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/earthiverse/ALData#readme",
   "dependencies": {
-    "alclient": "^0.9.48",
+    "alclient": "^0.9.61",
     "cors": "^2.8.5",
     "express": "^4.17.2",
     "express-rate-limit": "^6.1.0",
