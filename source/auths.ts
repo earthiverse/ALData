@@ -9,7 +9,7 @@ export type AuthResponse = {
 export async function checkAuth(id: string, key: string): Promise<AuthResponse> {
     const filter: FilterQuery<IPlayerDocument> = { name: id }
 
-    const character = await AL.PlayerModel.findOne(filter)
+    const character = await AL.PlayerModel.findOne(filter).lean().exec()
 
     if (character.aldata) {
         if (key) {

@@ -29,27 +29,71 @@ const credentialsFile = "../credentials.json"
 const credentials = JSON.parse(fs.readFileSync(credentialsFile, "utf8"))
 if ((credentials.email && credentials.password) || (credentials.userAuth && credentials.userID)) {
     // Adventure Land credentials exist, let's login and gather data
-    AL.Game.loginJSONFile(credentialsFile).then(async () => {
-        // Cache the GData
-        await AL.Game.getGData(true, false)
+    await AL.Game.loginJSONFile(credentialsFile)
 
-        // Open a socket to all AL servers
-        for (const sR in AL.Game.servers) {
-            const serverRegion = sR as ServerRegion
-            for (const sI in AL.Game.servers[serverRegion]) {
-                const serverIdentifier = sI as ServerIdentifier
+    // Cache the GData
+    await AL.Game.getGData(true, false)
 
-                console.log(`Starting ${serverRegion} ${serverIdentifier} ALData logger`)
-                await AL.Game.startObserver(serverRegion, serverIdentifier)
-            }
+    // Open a socket to all AL servers
+    for (const sR in AL.Game.servers) {
+        const serverRegion = sR as ServerRegion
+        for (const sI in AL.Game.servers[serverRegion]) {
+            const serverIdentifier = sI as ServerIdentifier
+
+            console.log(`Starting ${serverRegion} ${serverIdentifier} ALData logger`)
+            await AL.Game.startObserver(serverRegion, serverIdentifier)
         }
+    }
 
-        // Prepare Pathfinding
-        AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
-    })
+    // Prepare Pathfinding
+    AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
+
+    // Check mail for auths every 60 minutes
+    const checkMailLoop = async () => {
+        try {
+            const recentMail = await AL.Game.getMail()
+            for (const mail of recentMail) {
+                if (mail.subject.toLowerCase() !== "aldata_auth") continue
+
+                const name = mail.fro
+                const aldata_auth = mail.message
+
+                const player = await AL.PlayerModel.findOne({ name: name }).lean().exec()
+                if (player) {
+                    if (player.owner) {
+                        // Update all characters they own with the auth
+                        await AL.PlayerModel.updateMany({ owner: player.owner }, { aldata: aldata_auth })
+                    } else {
+                        // Update the one character
+                        await AL.PlayerModel.updateOne({ name: name }, { aldata: aldata_auth })
+                    }
+                } else {
+                    // We don't have this username in our database
+                    await AL.PlayerModel.create({
+                        aldata: aldata_auth,
+                        name: name
+                    })
+                }
+
+                // We're done with the mail now
+                await AL.Game.deleteMail(mail.id)
+                console.log(`Updated auth for ${name}!`)
+            }
+        } catch (e) {
+            console.error(e)
+        }
+        setTimeout(async () => { checkMailLoop() }, 60000)
+    }
+    checkMailLoop()
 } else {
-    // Connect to just the database
+    // Connect to the database
     await AL.Database.connect(credentials.mongo)
+
+    // Get G Data
+    await AL.Game.getGData(true, false)
+
+    // Prepare Pathfinding
+    AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
 }
 
 // Redirect base URL to README
@@ -85,7 +129,7 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?/", async (request, respons
     response.status(200).send(npcs)
 })
 
-app.get("/auth/:id/:key", async (request, response) => {
+app.get("/auth/:id/:key?", async (request, response) => {
     const id = request.params.id
     const key = request.params.key
 
