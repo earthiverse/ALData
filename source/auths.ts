@@ -3,7 +3,8 @@ import { FilterQuery } from "mongoose"
 
 export type AuthResponse = {
     id: string
-    response: "NONE" | "OK" | "SET" | "WRONG"
+    auth: "NO" | "YES" | "CORRECT" | "WRONG"
+    owner: "NO" | "YES"
 }
 
 export async function checkAuth(id: string, key: string): Promise<AuthResponse> {
@@ -11,28 +12,25 @@ export async function checkAuth(id: string, key: string): Promise<AuthResponse> 
 
     const character = await AL.PlayerModel.findOne(filter).lean().exec()
 
+    const response: AuthResponse = {
+        auth: "NO",
+        id: id,
+        owner: character.owner == undefined ? "NO" : "YES"
+    }
+
     if (character.aldata) {
         if (key) {
             if (character.aldata == key) {
-                return {
-                    id: id,
-                    response: "OK"
-                }
+                response.auth = "CORRECT"
+                return response
             } else {
-                return {
-                    id: id,
-                    response: "WRONG"
-                }
+                response.auth = "WRONG"
+                return response
             }
         }
-        return {
-            id: id,
-            response: "SET"
-        }
-    } else {
-        return {
-            id: id,
-            response: "NONE"
-        }
+        response.auth = "YES"
+        return response
     }
+
+    return response
 }
