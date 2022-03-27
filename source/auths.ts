@@ -18,7 +18,19 @@ export async function checkAuthByOwner(owner: string, key: string): Promise<bool
     return result != null
 }
 
-export async function checkAuthByName(id: string, key: string): Promise<AuthResponse> {
+
+/**
+ * Checks the key with the value associated to the character in the database
+ * @param name Character Name
+ * @param key ALData Key
+ * @returns `true` if the key matches, `false` otherwise
+ */
+export async function checkAuthByName(name: string, key: string): Promise<boolean> {
+    const result = await AL.PlayerModel.findOne({ aldata: key, name: name }).lean().exec()
+    return result != null
+}
+
+export async function getAuthStatus(id: string, key: string): Promise<AuthResponse> {
     const filter: FilterQuery<IPlayerDocument> = { name: id }
 
     const character = await AL.PlayerModel.findOne(filter).lean().exec()

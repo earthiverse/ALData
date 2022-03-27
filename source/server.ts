@@ -6,8 +6,9 @@ import rateLimit from "express-rate-limit"
 import fs from "fs"
 import helmet from "helmet"
 import nocache from "nocache"
-import { checkAuthByName, checkAuthByOwner } from "./auths.js"
-import { getBank, updateBank } from "./bank.js"
+import { getAchievements, updateAchievements } from "./achievements.js"
+import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
+import { getBank, updateBank } from "./banks.js"
 import { getCharacters } from "./characters.js"
 import { getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
@@ -107,20 +108,55 @@ app.get("/", async (request, response) => {
     response.redirect("https://github.com/earthiverse/ALData#aldata")
 })
 
+// Setup achievements retrieval & updating
+app.get("/achievements/:id", async (request, response) => {
+    const id = request.params.id
+
+    try {
+        const achievements = getAchievements(id)
+        response.status(200).send(achievements)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+app.put("/achievements/:id/:key", async (request, response) => {
+    const id = request.params.id
+    const key = request.params.key
+
+    if (!await checkAuthByName(id, key)) {
+        // Failed authentication
+        response.status(401).send()
+        return
+    }
+
+    const achievements = request.body
+
+    try {
+        await updateAchievements(id, achievements)
+        response.status(200).send()
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
+        return
+    }
+})
+
 // Setup Authentication Check
 app.get("/auth/:id/:key?", async (request, response) => {
     const id = request.params.id
     const key = request.params.key
 
     try {
-        const auth = await checkAuthByName(id, key)
+        const auth = await getAuthStatus(id, key)
         response.status(200).send(auth)
     } catch (e) {
-        response.status(500).send({})
+        response.status(500).send()
         return
     }
 })
 
+// Setup bank retrieval & updating
 app.get("/bank/:owner", async (request, response) => {
     const owner = request.params.owner
 
@@ -128,10 +164,9 @@ app.get("/bank/:owner", async (request, response) => {
         const bank = await getBank(owner)
         response.status(200).send(bank)
     } catch (e) {
-        response.status(500).send({})
+        response.status(500).send()
     }
 })
-
 app.put("/bank/:owner/:key", async (request, response) => {
     const owner = request.params.owner
     const key = request.params.key
@@ -145,15 +180,26 @@ app.put("/bank/:owner/:key", async (request, response) => {
     const bank = request.body
 
     try {
-        await updateBank(owner, key, bank)
+        await updateBank(owner, bank)
         response.status(200).send()
     } catch (e) {
-        response.status(500).send([])
+        response.status(500).send()
         return
     }
 })
 
 // Setup Character Retrieval
+app.get("/character/:id", async (request, response) => {
+    const id = request.params.id
+
+    try {
+        const character = await getCharacters([id])[0]
+        response.status(200).send(character)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
 app.get("/characters/:ids", async (request, response) => {
     const ids = request.params.ids.split(",")
 
@@ -161,7 +207,7 @@ app.get("/characters/:ids", async (request, response) => {
         const characters = await getCharacters(ids)
         response.status(200).send(characters)
     } catch (e) {
-        response.status(500).send([])
+        response.status(500).send()
         return
     }
 })
@@ -176,12 +222,25 @@ app.get("/monsters/:types/:serverRegion?/:serverIdentifier?", async (request, re
         const monsters = await getMonsters(types, serverRegion, serverIdentifier)
         response.status(200).send(monsters)
     } catch (e) {
-        response.status(500).send([])
+        response.status(500).send()
         return
     }
 })
 
 // Setup NPC Retrieval
+app.get("/npc/:id/:serverRegion/:serverIdentifier", async (request, response) => {
+    const id = request.params.id
+    const serverRegion = request.params.serverRegion as ServerRegion
+    const serverIdentifier = request.params.serverIdentifier as ServerIdentifier
+
+    try {
+        const npc = await getNPCs([id], serverRegion, serverIdentifier)[0]
+        response.status(200).send(npc)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
 app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?", async (request, response) => {
     const ids = request.params.ids.split(",")
     const serverRegion = request.params.serverRegion as ServerRegion
@@ -191,7 +250,7 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?", async (request, response
         const npcs = await getNPCs(ids, serverRegion, serverIdentifier)
         response.status(200).send(npcs)
     } catch (e) {
-        response.status(500).send([])
+        response.status(500).send()
         return
     }
 })
@@ -202,27 +261,27 @@ app.get("/path/:from/:to", async (request, response) => {
     const [toMap, toXString, toYString] = request.params.to.split(",") as [MapName, string, string]
 
     if (!AL.Game.G.maps[fromMap]) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
     if (!AL.Game.G.maps[toMap]) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
     if (fromXString === undefined) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
     if (fromYString === undefined) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
     if (toXString === undefined) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
     if (toYString === undefined) {
-        response.status(400).send([])
+        response.status(400).send()
         return
     }
 
@@ -245,7 +304,7 @@ app.get("/path/:from/:to", async (request, response) => {
         return
     } catch (e) {
         console.error(e)
-        response.status(500).send([])
+        response.status(500).send()
         return
     }
 })
