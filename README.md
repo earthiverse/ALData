@@ -29,6 +29,38 @@ send_mail("earthiverse", "aldata_auth", "put key here")
 
 ## API
 
+### GET /achievements/:id
+
+Retrieves achievement information for the given character.
+
+* Example: `https://aldata.earthiverse.ca/achievements/earthiverse`
+
+***
+
+### PUT /achievements/:id/:key
+
+Updates achievement information for the given character.
+Set the request body to JSON text representing your character's achievement information in Adventure.land.
+
+Example code:
+
+```js
+const ALDATA_KEY = "thisisnotmyrealkey"
+parent.socket.once("tracker", (data) => {
+    const url = `https://aldata.earthiverse.ca/achievements/${character.id}/${ALDATA_KEY}`
+    const settings = {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max: data.max, monsters: data.monsters })
+    };
+    // if response.status == 200, it was successfully updated
+    fetch(url, settings).then(response => show_json(response.status))
+})
+parent.socket.emit("tracker")
+```
+
+***
+
 ### GET /auth/:id/:key?
 
 Checks ALData authentication status.
