@@ -113,7 +113,7 @@ app.get("/achievements/:id", async (request, response) => {
     const id = request.params.id
 
     try {
-        const achievements = getAchievements(id)
+        const achievements = await getAchievements(id)
         response.status(200).send(achievements)
     } catch (e) {
         response.status(500).send()
