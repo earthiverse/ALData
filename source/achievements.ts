@@ -5,7 +5,7 @@ const PRIVATE_ACHIEVEMENTS: string[] = []
 
 export async function getAchievements(name: string): Promise<LeanDocument<IAchievementDocument>> {
     if (PRIVATE_ACHIEVEMENTS.includes(name)) return // Private achievements
-    const filter: FilterQuery<IAchievementDocument> = { owner: name }
+    const filter: FilterQuery<IAchievementDocument> = { name: name }
 
     const achievements = await AL.AchievementModel.findOne(filter, { owner: false }, { sort: { date: -1 } }).lean().exec()
     return achievements
