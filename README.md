@@ -37,6 +37,14 @@ Retrieves achievement information for the given character.
 
 ***
 
+### GET /achievements/:id/:monster
+
+Retrieves historical achievement data for the given character and monster.
+
+* Example: `https://aldata.earthiverse.ca/achievements/earthiverse/goo`
+
+***
+
 ### PUT /achievements/:id/:key
 
 Updates achievement information for the given character.

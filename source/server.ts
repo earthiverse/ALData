@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit"
 import fs from "fs"
 import helmet from "helmet"
 import nocache from "nocache"
-import { getAchievements, updateAchievements } from "./achievements.js"
+import { getAchievements, getAchievementsForMonster, updateAchievements } from "./achievements.js"
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters } from "./characters.js"
@@ -114,6 +114,18 @@ app.get("/achievements/:id", async (request, response) => {
 
     try {
         const achievements = await getAchievements(id)
+        response.status(200).send(achievements)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+app.get("/achievements/:id/:monster", async (request, response) => {
+    const id = request.params.id
+    const monster = request.params.monster as MonsterName
+
+    try {
+        const achievements = await getAchievementsForMonster(id, monster)
         response.status(200).send(achievements)
     } catch (e) {
         response.status(500).send()

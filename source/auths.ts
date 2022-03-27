@@ -18,7 +18,6 @@ export async function checkAuthByOwner(owner: string, key: string): Promise<bool
     return result != null
 }
 
-
 /**
  * Checks the key with the value associated to the character in the database
  * @param name Character Name
