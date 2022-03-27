@@ -14,8 +14,8 @@ Some API functionality (specifically, `PUT` requests) requires an authentication
 
 Notes:
 
-1. The auth is stored as plaintext in the database. I will be able to see your auth key. **Do not re-use any password.**
-2. If the owner of the character is known, it will set the auth for all characters with the same owner. You can check if the owner is known with the GET /auth/ endpoint (`https://aldata.earthiverse.ca/auth/character_name`).
+1. The key is stored as plaintext in the database. I will be able to see your key. **Do not re-use any password.**
+2. If the owner of the character is known, it will set the key for all characters with the same owner. You can check if the owner is known with the GET /auth/ endpoint (`https://aldata.earthiverse.ca/auth/character_name`).
 3. It costs gold (48,000 gold as of March, 2022) to send mail. This gold does not go to me.
 4. The mail check only runs once a minute, so it may take a minute to set or update your auth key.
 
@@ -40,10 +40,34 @@ Examples:
 
 ***
 
+### GET /bank/:owner
+
+Retrieves bank information for the given owner
+
+Examples:
+
+* earthiverse's bank: `https://aldata.earthiverse.ca/bank/5622711463182336`
+
+***
+
 ### PUT /bank/:owner/:key
 
 Updates bank information for the given owner.
 Set the request body to JSON text representing your character's banking information, e.g. `character.bank` in Adventure.land.
+
+Example code:
+
+```js
+const ALDATA_KEY = "thisisnotmyrealkey"
+const url = `https://aldata.earthiverse.ca/bank/${character.owner}/${ALDATA_KEY}`
+const settings = {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(character.bank)
+};
+// if response.status == 200, it was successfully updated
+fetch(url, settings).then(response => show_json(response.status))
+```
 
 ***
 
