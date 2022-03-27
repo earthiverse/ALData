@@ -6,11 +6,48 @@ This is an API for getting data for use in the online MMORPG Adventure.land.
 
 The API endpoint might be live at <https://aldata.earthiverse.ca>
 
+## Authentication
+
+Some API functionality (specifically, `PUT` requests) requires an authentication key to ensure that players don't overwrite others' data.
+
+### Adding / setting an authentication key
+
+Notes:
+
+1. The auth is stored as plaintext in the database. I will be able to see your auth key. **Do not re-use any password.**
+2. If the owner of the character is known, it will set the auth for all characters with the same owner. You can check if the owner is known with the GET /auth/ endpoint (`https://aldata.earthiverse.ca/auth/character_name`).
+3. It costs gold (48,000 gold as of March, 2022) to send mail. This gold does not go to me.
+4. The mail check only runs once a minute, so it may take a minute to set or update your auth key.
+
+In Adventure.land, you can use the following code to send mail and set or update your auth key:
+
+```js
+send_mail("earthiverse", "aldata_auth", "put key here")
+```
+
 ***
 
 ## API
 
-### /characters/:ids
+### GET /auth/:id/:key?
+
+Checks ALData authentication status.
+
+Examples:
+
+* Auth existence check: `https://aldata.earthiverse.ca/auth/earthiverse`
+* Auth key check: `https://aldata.earthiverse.ca/characters/earthiverse/thisisnotmyrealauth`
+
+***
+
+### PUT /bank/:owner/:key
+
+Updates bank information for the given owner.
+Set the request body to JSON text representing your character's banking information, e.g. `character.bank` in Adventure.land.
+
+***
+
+### GET /characters/:ids
 
 Returns an array containing data about characters.
 
@@ -21,7 +58,7 @@ Examples:
 
 ***
 
-### /monsters/:types/:serverRegion?/:serverIdentifier?
+### GET /monsters/:types/:serverRegion?/:serverIdentifier?
 
 Returns an array containing data about monsters.
 
@@ -35,7 +72,7 @@ Examples:
 
 ***
 
-### /npcs/:name/:serverRegion?/:serverIdentifier?
+### GET /npcs/:name/:serverRegion?/:serverIdentifier?
 
 Returns an array containing data about given NPCs
 
