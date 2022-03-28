@@ -109,23 +109,23 @@ app.get("/", async (request, response) => {
 })
 
 // Setup achievements retrieval & updating
-app.get("/achievements/:id", async (request, response) => {
-    const id = request.params.id
+app.get("/achievements/:ids", async (request, response) => {
+    const ids = request.params.ids.split(",")
 
     try {
-        const achievements = await getAchievements(id)
+        const achievements = await getAchievements(ids)
         response.status(200).send(achievements)
     } catch (e) {
         response.status(500).send()
         return
     }
 })
-app.get("/achievements/:id/:monster", async (request, response) => {
-    const id = request.params.id
+app.get("/achievements/:ids/:monster", async (request, response) => {
+    const ids = request.params.ids.split(",")
     const monster = request.params.monster as MonsterName
 
     try {
-        const achievements = await getAchievementsForMonster(id, monster)
+        const achievements = await getAchievementsForMonster(ids, monster)
         response.status(200).send(achievements)
     } catch (e) {
         response.status(500).send()

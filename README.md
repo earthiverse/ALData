@@ -29,19 +29,25 @@ send_mail("earthiverse", "aldata_auth", "put key here")
 
 ## API
 
-### GET /achievements/:id
+### GET /achievements/:ids
 
-Retrieves achievement information for the given character.
+Retrieves achievement information for the given characters.
 
-* Example: `https://aldata.earthiverse.ca/achievements/earthiverse`
+Examples:
+
+* Single Character: `https://aldata.earthiverse.ca/achievements/earthiverse`
+* Multiple Characters: `https://aldata.earthiverse.ca/achievements/earthiverse,lolwutpear`
 
 ***
 
-### GET /achievements/:id/:monster
+### GET /achievements/:ids/:monster
 
-Retrieves historical achievement data for the given character and monster.
+Retrieves historical achievement data for the given characters and monster.
 
-* Example: `https://aldata.earthiverse.ca/achievements/earthiverse/goo`
+Examples:
+
+* Single Character: `https://aldata.earthiverse.ca/achievements/earthiverse/goo`
+* Multiple Characters: `https://aldata.earthiverse.ca/achievements/earthiverse,lolwutpear/goo`
 
 ***
 

@@ -12,19 +12,23 @@ export type MonsterAchievementProgress = {
 
 const PRIVATE_ACHIEVEMENTS: string[] = []
 
-export async function getAchievements(name: string): Promise<LeanDocument<IAchievementDocument>> {
-    if (PRIVATE_ACHIEVEMENTS.includes(name)) return // Private achievements
-    const filter: FilterQuery<IAchievementDocument> = { name: name }
+export async function getAchievements(ids: string[]): Promise<LeanDocument<IAchievementDocument[]>> {
+    ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
+    if (ids.length == 0) return []
 
-    const achievements = await AL.AchievementModel.findOne(filter, { date: false, name: false }, { sort: { date: -1 } }).lean().exec()
+    const filter: FilterQuery<IAchievementDocument> = { name: { $in: ids } }
+
+    const achievements = await AL.AchievementModel.find(filter, { date: false, name: false }, { sort: { date: -1 } }).lean().exec()
     return achievements
 }
 
-export async function getAchievementsForMonster(name: string, monster: MonsterName): Promise<MonsterAchievementProgress> {
+export async function getAchievementsForMonster(ids: string[], monster: MonsterName): Promise<MonsterAchievementProgress> {
+    ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
+
     const progress = await AL.AchievementModel.aggregate([
         {
             $match: {
-                name: name
+                name: { $in: ids }
             }
         },
         {
@@ -36,6 +40,7 @@ export async function getAchievementsForMonster(name: string, monster: MonsterNa
             $project: {
                 _id: 0,
                 "date": 1,
+                "name": 1,
                 "count": `$monsters.${monster}`
             }
         }
