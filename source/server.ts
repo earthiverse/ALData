@@ -120,12 +120,14 @@ app.get("/achievements/:ids", async (request, response) => {
         return
     }
 })
-app.get("/achievements/:ids/:monster", async (request, response) => {
+app.get("/achievements/:ids/:monster/:fromDate?/:toDate?", async (request, response) => {
     const ids = request.params.ids.split(",")
     const monster = request.params.monster as MonsterName
+    const fromDate = request.params.fromDate ? Number.parseInt(request.params.fromDate) : 0
+    const toDate = request.params.toDate ? Number.parseInt(request.params.toDate) : Date.now()
 
     try {
-        const achievements = await getAchievementsForMonster(ids, monster)
+        const achievements = await getAchievementsForMonster(ids, monster, fromDate, toDate)
         response.status(200).send(achievements)
     } catch (e) {
         response.status(500).send()

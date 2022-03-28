@@ -40,14 +40,16 @@ Examples:
 
 ***
 
-### GET /achievements/:ids/:monster
+### GET /achievements/:ids/:monster/:fromDate?/:toDate?
 
 Retrieves historical achievement data for the given characters and monster.
 
 Examples:
 
-* Single Character: `https://aldata.earthiverse.ca/achievements/earthiverse/goo`
+* Single Character, all time: `https://aldata.earthiverse.ca/achievements/earthiverse/goo`
+* Single Character, January, 2022: `https://aldata.earthiverse.ca/achievements/earthiverse/goo/1640995200/1643673600`
 * Multiple Characters: `https://aldata.earthiverse.ca/achievements/earthiverse,lolwutpear/goo`
+* Multiple Characters, January 2022: `https://aldata.earthiverse.ca/achievements/earthiverse,lolwutpear/goo/1640995200/1643673600`
 
 ***
 

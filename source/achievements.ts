@@ -22,12 +22,13 @@ export async function getAchievements(ids: string[]): Promise<LeanDocument<IAchi
     return achievements
 }
 
-export async function getAchievementsForMonster(ids: string[], monster: MonsterName): Promise<MonsterAchievementProgress> {
+export async function getAchievementsForMonster(ids: string[], monster: MonsterName, fromDate = 0, toDate = Date.now()): Promise<MonsterAchievementProgress> {
     ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
 
     const progress = await AL.AchievementModel.aggregate([
         {
             $match: {
+                date: { $gt: fromDate, $lt: toDate },
                 name: { $in: ids }
             }
         },
@@ -39,9 +40,9 @@ export async function getAchievementsForMonster(ids: string[], monster: MonsterN
         {
             $project: {
                 _id: 0,
+                "count": `$monsters.${monster}`,
                 "date": 1,
-                "name": 1,
-                "count": `$monsters.${monster}`
+                "name": 1
             }
         }
     ]).exec()
