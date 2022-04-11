@@ -84,7 +84,7 @@ Checks ALData authentication status.
 Examples:
 
 * Auth existence check: `https://aldata.earthiverse.ca/auth/earthiverse`
-* Auth key check: `https://aldata.earthiverse.ca/characters/earthiverse/thisisnotmyrealauth`
+* Auth key check: `https://aldata.earthiverse.ca/auth/earthiverse/thisisnotmyrealauth`
 
 ***
 
