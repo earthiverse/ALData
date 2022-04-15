@@ -24,7 +24,7 @@ export async function getAchievements(ids: string[]): Promise<LeanDocument<IAchi
         },
         {
             $sort: {
-                date: -1
+                date: 1
             }
         },
         {
