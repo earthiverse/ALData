@@ -31,7 +31,7 @@ send_mail("earthiverse", "aldata_auth", "put key here")
 
 ### GET /achievements/:ids
 
-Retrieves achievement information for the given characters.
+Retrieves the latest achievement data for the given characters.
 
 Examples:
 

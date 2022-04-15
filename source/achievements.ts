@@ -1,6 +1,6 @@
 import AL, { IAchievementDocument, TrackerData } from "alclient"
 import { MonsterName } from "alclient"
-import { FilterQuery, LeanDocument } from "mongoose"
+import { LeanDocument } from "mongoose"
 
 /**
  * The first element is the date, the 2nd element is the
@@ -16,10 +16,43 @@ export async function getAchievements(ids: string[]): Promise<LeanDocument<IAchi
     ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
     if (ids.length == 0) return []
 
-    const filter: FilterQuery<IAchievementDocument> = { name: { $in: ids } }
-
-    const achievements = await AL.AchievementModel.find(filter, { date: false, name: false }, { sort: { date: -1 } }).lean().exec()
-    return achievements
+    return await AL.AchievementModel.aggregate([
+        {
+            $match: {
+                name: { $in: ids }
+            }
+        },
+        {
+            $sort: {
+                date: -1
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    name: "$name"
+                },
+                date: {
+                    $last: "$date"
+                },
+                max: {
+                    $last: "$max"
+                },
+                monsters: {
+                    $last: "$monsters"
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                date: 1,
+                max: 1,
+                monsters: 1,
+                name: "$_id.name"
+            }
+        }
+    ]).exec()
 }
 
 export async function getAchievementsForMonster(ids: string[], monster: MonsterName, fromDate = 0, toDate = Date.now()): Promise<MonsterAchievementProgress> {
