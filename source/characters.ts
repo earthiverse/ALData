@@ -23,3 +23,19 @@ export async function getCharacters(ids: string[]) {
     }
     return characters
 }
+
+export async function getOwners(ids: string[]) {
+    ids = ids.filter(x => !PRIVATE_CHARACTERS.includes(x))
+    if (ids.length == 0) return []
+
+    const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids }, serverIdentifier: { $ne: "PVP" } }
+
+    const characters = []
+    for (const character of await AL.PlayerModel.find(filter).lean().exec()) {
+        characters.push({
+            id: character.name,
+            owner: character.owner
+        })
+    }
+    return characters
+}

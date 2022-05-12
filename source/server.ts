@@ -9,7 +9,7 @@ import nocache from "nocache"
 import { getAchievements, getAchievementsForMonster, updateAchievements } from "./achievements.js"
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
-import { getCharacters } from "./characters.js"
+import { getCharacters, getOwners } from "./characters.js"
 import { getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
 
@@ -263,6 +263,31 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?", async (request, response
     try {
         const npcs = await getNPCs(ids, serverRegion, serverIdentifier)
         response.status(200).send(npcs)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+
+
+// Setup Owner Retrieval
+app.get("/owner/:id", async (request, response) => {
+    const id = request.params.id
+
+    try {
+        const character = await getOwners([id])[0]
+        response.status(200).send(character)
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+app.get("/owners/:ids", async (request, response) => {
+    const ids = request.params.ids.split(",")
+
+    try {
+        const characters = await getOwners(ids)
+        response.status(200).send(characters)
     } catch (e) {
         response.status(500).send()
         return
