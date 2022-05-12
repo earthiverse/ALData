@@ -207,8 +207,8 @@ app.get("/character/:id", async (request, response) => {
     const id = request.params.id
 
     try {
-        const character = await getCharacters([id])[0]
-        response.status(200).send(character)
+        const characters = await getCharacters([id])
+        response.status(200).send(characters[0])
     } catch (e) {
         response.status(500).send()
         return
@@ -275,8 +275,8 @@ app.get("/owner/:id", async (request, response) => {
     const id = request.params.id
 
     try {
-        const character = await getOwners([id])[0]
-        response.status(200).send(character)
+        const owners = await getOwners([id])
+        response.status(200).send(owners[0])
     } catch (e) {
         response.status(500).send()
         return
@@ -286,8 +286,8 @@ app.get("/owners/:ids", async (request, response) => {
     const ids = request.params.ids.split(",")
 
     try {
-        const characters = await getOwners(ids)
-        response.status(200).send(characters)
+        const owners = await getOwners(ids)
+        response.status(200).send(owners)
     } catch (e) {
         response.status(500).send()
         return
