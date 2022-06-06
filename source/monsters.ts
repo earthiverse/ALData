@@ -4,7 +4,7 @@ const PRIVATE_MONSTERS: string[] = [
     // Very rare monsters
     "cutebee", "goldenbat",
     // Crypt monsters
-    "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "xmagefi", "xmagefz", "xmagen", "xmagex"
+    "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "vbat", "xmagefi", "xmagefz", "xmagen", "xmagex"
 ]
 
 export async function getMonsters(types: MonsterName[], serverRegion?: ServerRegion, serverIdentifier?: ServerIdentifier) {
