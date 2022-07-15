@@ -89,7 +89,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
         } catch (e) {
             console.error(e)
         }
-        setTimeout(async () => { checkMailLoop() }, 60000)
+        setTimeout(checkMailLoop, 60000)
     }
     checkMailLoop()
 } else {
