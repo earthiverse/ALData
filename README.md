@@ -125,8 +125,21 @@ Returns an array containing data about characters.
 
 Examples:
 
-* Single Character: `https://aldata.earthiverse.ca/characters/earthiverse`
-* Multiple Characters: `https://aldata.earthiverse.ca/characters/earthiverse,earthPri,earthWar,earthMer`
+* Single character: `https://aldata.earthiverse.ca/characters/earthiverse`
+* Multiple characters: `https://aldata.earthiverse.ca/characters/earthiverse,earthPri,earthWar,earthMer`
+
+***
+
+### GET /merchants/:ids?
+
+Returns an array containing data about merchants and what items they are buying / have for sale.
+
+The API will only show merchants with data that has been updated within the past week.
+
+Examples:
+
+* All merchants: `https://aldata.earthiverse.ca/merchants`
+* Specific merchant(s): `https://aldata.earthiverse.ca/merchants/earthMer,AriaHarper`
 
 ***
 
@@ -138,9 +151,9 @@ Returns an array containing data about monsters.
 
 Examples:
 
-* Single Monster Type: `https://aldata.earthiverse.ca/monsters/franky`
-* Multiple Monster Types: `https://aldata.earthiverse.ca/monsters/phoenix,mvampire,fvampire`
-* US PVP snowman: `https://aldata.earthiverse.ca/monsters/snowman/US/PVP`
+* Single monster type: `https://aldata.earthiverse.ca/monsters/franky`
+* Multiple monster types: `https://aldata.earthiverse.ca/monsters/phoenix,mvampire,fvampire`
+* Single monster type on a specific server: `https://aldata.earthiverse.ca/monsters/snowman/US/PVP`
 
 ***
 

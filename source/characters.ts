@@ -10,7 +10,15 @@ export async function getCharacters(ids: string[]) {
     const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids }, serverIdentifier: { $ne: "PVP" } }
 
     const characters = []
-    for (const character of await AL.PlayerModel.find(filter).lean().exec()) {
+    for (const character of await AL.PlayerModel.find(filter, {
+        lastSeen: 1,
+        map: 1,
+        name: 1,
+        serverIdentifier: 1,
+        serverRegion: 1,
+        x: 1,
+        y: 1
+    }).lean().exec()) {
         characters.push({
             id: character.name,
             lastSeen: new Date(character.lastSeen).toISOString(),
@@ -31,7 +39,10 @@ export async function getOwners(ids: string[]) {
     const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids } }
 
     const characters = []
-    for (const character of await AL.PlayerModel.find(filter).lean().exec()) {
+    for (const character of await AL.PlayerModel.find(filter, {
+        name: 1,
+        owner: 1
+    }).lean().exec()) {
         characters.push({
             id: character.name,
             owner: character.owner

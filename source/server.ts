@@ -10,6 +10,7 @@ import { getAchievements, getAchievementsForMonster, updateAchievements } from "
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getOwners } from "./characters.js"
+import { getMerchants } from "./merchants.js"
 import { getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
 
@@ -221,6 +222,32 @@ app.get("/characters/:ids", async (request, response) => {
         const characters = await getCharacters(ids)
         response.status(200).send(characters)
     } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+
+// Setup Merchant Retrieval
+app.get("/merchant/:id?", async (request, response) => {
+    const id = request.params.id
+
+    try {
+        const merchants = await getMerchants([id])
+        response.status(200).send(merchants[0])
+    } catch (e) {
+        console.error(e)
+        response.status(500).send()
+        return
+    }
+})
+app.get("/merchants/:ids?", async (request, response) => {
+    const ids = request.params.ids?.split(",")
+
+    try {
+        const merchants = await getMerchants(ids)
+        response.status(200).send(merchants)
+    } catch (e) {
+        console.error(e)
         response.status(500).send()
         return
     }
