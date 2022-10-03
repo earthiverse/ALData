@@ -11,7 +11,7 @@ import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getOwners } from "./characters.js"
 import { getMerchants } from "./merchants.js"
-import { getMonsters } from "./monsters.js"
+import { getHalloweenMonsterPriority, getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
 
 // Setup Express
@@ -222,6 +222,18 @@ app.get("/characters/:ids", async (request, response) => {
         const characters = await getCharacters(ids)
         response.status(200).send(characters)
     } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
+
+// Halloween Priority
+app.get("/halloween", async (request, response) => {
+    try {
+        const priority = await getHalloweenMonsterPriority()
+        response.status(200).send(priority)
+    } catch (e) {
+        console.error(e)
         response.status(500).send()
         return
     }

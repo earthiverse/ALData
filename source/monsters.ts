@@ -57,3 +57,65 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
 
     return toReturn
 }
+
+export async function getHalloweenMonsterPriority() {
+    const monsterPriority: MonsterName[] = ["mrpumpkin", "mrgreen"]
+    const serverPriority = ["EUI", "EUII", "USI", "USII", "USIII", "ASIAI", "EUPVP", "USPVP"]
+
+    const entitiesFilters = { lastSeen: { $gt: Date.now() - 30000 }, type: { $in: monsterPriority } }
+    const respawnFilters = { estimatedRespawn: { $gt: Date.now() }, type: { $in: monsterPriority } }
+
+    const entitiesP = AL.EntityModel.find(entitiesFilters).lean().exec()
+    const respawnsP = AL.RespawnModel.find(respawnFilters).lean().exec()
+    await Promise.all([entitiesP, respawnsP])
+
+    const entities = await entitiesP
+    entities.sort((a, b) => {
+        // Lower HP first
+        if (a.hp !== b.hp) return a.hp - b.hp
+
+        // Monster Priority
+        if (a.type !== b.type) return monsterPriority.indexOf(a.type) - monsterPriority.indexOf(b.type)
+
+        // Server Priority
+        if (a.serverRegion !== b.serverRegion || a.serverIdentifier !== b.serverIdentifier) {
+            const aKey = `${a.serverRegion}${a.serverIdentifier}`
+            const bKey = `${b.serverRegion}${b.serverIdentifier}`
+            return serverPriority.indexOf(aKey) - serverPriority.indexOf(bKey)
+        }
+    })
+
+    const respawns = await respawnsP
+    respawns.sort((a, b) => {
+        // Lower ms first
+        return a.estimatedRespawn - b.estimatedRespawn
+    })
+
+    const toReturn = []
+    for (const entity of entities) {
+        if (entity.in && entity.in !== entity.map) continue // Don't include instanced monsters
+        toReturn.push({
+            hp: entity.hp,
+            id: entity.name,
+            lastSeen: new Date(entity.lastSeen).toISOString(),
+            level: entity.level,
+            map: entity.map,
+            serverIdentifier: entity.serverIdentifier,
+            serverRegion: entity.serverRegion,
+            target: entity.target,
+            type: entity.type,
+            x: entity.x,
+            y: entity.y
+        })
+    }
+    for (const respawn of respawns) {
+        toReturn.push({
+            estimatedRespawn: new Date(respawn.estimatedRespawn).toISOString(),
+            serverIdentifier: respawn.serverIdentifier,
+            serverRegion: respawn.serverRegion,
+            type: respawn.type
+        })
+    }
+
+    return toReturn
+}
