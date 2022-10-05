@@ -92,7 +92,7 @@ export async function getHalloweenMonsterPriority() {
     const respawns = await respawnsP
     for (const respawn of respawns) {
         // Add an artificial increase to respawn on PVP servers so we prefer Non-PVP servers if the spawns are really close
-        if (respawn.serverIdentifier == "PVP") respawn.estimatedRespawn += 20
+        if (respawn.serverIdentifier == "PVP") respawn.estimatedRespawn += 20_000
 
     }
     respawns.sort((a, b) => {
