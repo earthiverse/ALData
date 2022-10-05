@@ -47,9 +47,6 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
         })
     }
     for (const respawn of respawns) {
-        // Add an artificial increase to respawn on PVP servers so we prefer Non-PVP servers if the spawns are really close
-        if (respawn.serverIdentifier == "PVP") respawn.estimatedRespawn += 20
-
         toReturn.push({
             estimatedRespawn: new Date(respawn.estimatedRespawn).toISOString(),
             serverIdentifier: respawn.serverIdentifier,
@@ -93,6 +90,11 @@ export async function getHalloweenMonsterPriority() {
     })
 
     const respawns = await respawnsP
+    for (const respawn of respawns) {
+        // Add an artificial increase to respawn on PVP servers so we prefer Non-PVP servers if the spawns are really close
+        if (respawn.serverIdentifier == "PVP") respawn.estimatedRespawn += 20
+
+    }
     respawns.sort((a, b) => {
         // Lower ms first
         return a.estimatedRespawn - b.estimatedRespawn
