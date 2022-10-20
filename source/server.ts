@@ -1,4 +1,4 @@
-import AL, { MapName, MonsterName, ServerIdentifier, ServerRegion } from "alclient"
+import AL, { MapName, MonsterName, Observer, ServerIdentifier, ServerRegion } from "alclient"
 import bodyParser from "body-parser"
 import cors from "cors"
 import express from "express"
@@ -11,7 +11,7 @@ import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getOwners } from "./characters.js"
 import { getMerchants } from "./merchants.js"
-import { getHalloweenMonsterPriority, getMonsters } from "./monsters.js"
+import { getHalloweenMonsterPriority_Observers, getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
 
 // Setup Express
@@ -30,6 +30,8 @@ const apiLimiter = rateLimit({
 app.use(apiLimiter)
 app.use(bodyParser.json())
 
+const OBSERVERS: Observer[] = []
+
 const credentialsFile = "../credentials.json"
 const credentials = JSON.parse(fs.readFileSync(credentialsFile, "utf8"))
 if ((credentials.email && credentials.password) || (credentials.userAuth && credentials.userID)) {
@@ -46,7 +48,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
             const serverIdentifier = sI as ServerIdentifier
 
             console.log(`Starting ${serverRegion} ${serverIdentifier} ALData logger`)
-            await AL.Game.startObserver(serverRegion, serverIdentifier)
+            OBSERVERS.push(await AL.Game.startObserver(serverRegion, serverIdentifier))
         }
     }
 
@@ -228,9 +230,9 @@ app.get("/characters/:ids", async (request, response) => {
 })
 
 // Halloween Priority
-app.get("/halloween", async (request, response) => {
+app.get("/halloween", async (_request, response) => {
     try {
-        const priority = await getHalloweenMonsterPriority()
+        const priority = await getHalloweenMonsterPriority_Observers(OBSERVERS)
         response.status(200).send(priority)
     } catch (e) {
         console.error(e)
