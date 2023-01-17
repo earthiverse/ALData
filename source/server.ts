@@ -11,7 +11,7 @@ import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getOwners } from "./characters.js"
 import { getMerchants } from "./merchants.js"
-import { getHalloweenMonsterPriority, getHolidayMonsterPriority, getMonsters } from "./monsters.js"
+import { getHalloweenMonsterPriority, getHolidayMonsterPriority, getLunarNewYearMonsterPriority, getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
 
 // Setup Express
@@ -245,6 +245,18 @@ app.get("/christmas/:pvp?", async (request, response) => {
 app.get("/halloween/:pvp?", async (request, response) => {
     try {
         const priority = await getHalloweenMonsterPriority(OBSERVERS, request.params.pvp !== undefined)
+        response.status(200).send(priority)
+    } catch (e) {
+        console.error(e)
+        response.status(500).send()
+        return
+    }
+})
+
+// Lunar New Year Priority
+app.get("/lunarnewyear/:pvp?", async (request, response) => {
+    try {
+        const priority = await getLunarNewYearMonsterPriority(OBSERVERS, request.params.pvp !== undefined)
         response.status(200).send(priority)
     } catch (e) {
         console.error(e)
