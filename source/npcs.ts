@@ -14,6 +14,7 @@ export async function getNPCs(ids: string[], serverRegion?: ServerRegion, server
     for (const npc of await AL.NPCModel.find(filters).lean().exec()) {
         npcs.push({
             id: npc.name,
+            items: npc.items,
             lastSeen: new Date(npc.lastSeen).toISOString(),
             map: npc.map,
             serverIdentifier: npc.serverIdentifier,
