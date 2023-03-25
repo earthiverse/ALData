@@ -1,9 +1,9 @@
 import AL, { BankInfo, IBankDocument } from "alclient"
-import { FilterQuery, LeanDocument, UpdateQuery } from "mongoose"
+import { FilterQuery, UpdateQuery } from "mongoose"
 
 const PRIVATE_OWNERS: string[] = []
 
-export async function getBank(owner: string): Promise<LeanDocument<IBankDocument>> {
+export async function getBank(owner: string): Promise<IBankDocument> {
     if (PRIVATE_OWNERS.includes(owner)) return // Private bank
     const filter: FilterQuery<IBankDocument> = { owner: owner }
 

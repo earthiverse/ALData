@@ -1,6 +1,5 @@
 import AL, { IAchievementDocument, TrackerData } from "alclient"
 import { MonsterName } from "alclient"
-import { LeanDocument } from "mongoose"
 
 /**
  * The first element is the date, the 2nd element is the
@@ -12,7 +11,7 @@ export type MonsterAchievementProgress = {
 
 const PRIVATE_ACHIEVEMENTS: string[] = []
 
-export async function getAchievements(ids: string[]): Promise<LeanDocument<IAchievementDocument[]>> {
+export async function getAchievements(ids: string[]): Promise<IAchievementDocument[]> {
     ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
     if (ids.length == 0) return []
 
