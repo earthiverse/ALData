@@ -17,8 +17,7 @@
         "outDir": "build",
         "removeComments": false,
         "rootDir": "source",
-        "sourceMap": true,
-        "watch": false
+        "sourceMap": true
     },
     "include": [
         "source"
