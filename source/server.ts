@@ -53,7 +53,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
     }
 
     // Prepare Pathfinding
-    AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
+    AL.Pathfinder.prepare(AL.Game.G)
 
     // Check mail for auths every 60 minutes
     const checkMailLoop = async () => {
@@ -91,10 +91,22 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
             }
         } catch (e) {
             console.error(e)
+        } finally {
+            setTimeout(checkMailLoop, 60_000)
         }
-        setTimeout(checkMailLoop, 60000)
     }
     checkMailLoop()
+
+    const checkMerchantsLoop = async () => {
+        try {
+            await AL.Game.getMerchants().catch(console.error)
+        } catch (e) {
+            console.error(e)
+        } finally {
+            setTimeout(checkMerchantsLoop, 60_000)
+        }
+    }
+    checkMerchantsLoop()
 } else {
     // Connect to the database
     await AL.Database.connect(credentials.mongo)
@@ -103,7 +115,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
     await AL.Game.getGData(true, false)
 
     // Prepare Pathfinding
-    AL.Pathfinder.prepare(AL.Game.G, { include_bank_b: true, include_bank_u: false, include_test: true })
+    AL.Pathfinder.prepare(AL.Game.G)
 }
 
 // Redirect base URL to README
