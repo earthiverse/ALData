@@ -9,7 +9,7 @@ import nocache from "nocache"
 import { getAchievements, getAchievementsForMonster, updateAchievements } from "./achievements.js"
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
-import { getCharacters, getCharactersForOwner, getOwners } from "./characters.js"
+import { getCharacters, getCharactersForOwner, getOwners, updateCharacter } from "./characters.js"
 import { getMerchants } from "./merchants.js"
 import { getHalloweenMonsterPriority, getHolidayMonsterPriority, getLunarNewYearMonsterPriority, getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
@@ -226,6 +226,27 @@ app.get("/character/:id", async (request, response) => {
         response.status(200).send(characters[0])
     } catch (e) {
         response.status(500).send()
+        return
+    }
+})
+app.put("/character/:id/:key", async (request, response) => {
+    const id = request.params.id
+    const key = request.params.key
+
+    if (!await checkAuthByName(id, key)) {
+        // Failed authentication
+        response.status(401).send()
+        return
+    }
+
+    const characterData = request.body
+
+    try {
+        await updateCharacter(id, characterData)
+        response.status(200).send()
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
         return
     }
 })

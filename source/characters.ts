@@ -1,5 +1,5 @@
-import AL, { IPlayerDocument } from "alclient"
-import { FilterQuery } from "mongoose"
+import AL, { CharacterData, IPlayerDocument, ServerIdentifier, ServerRegion } from "alclient"
+import { FilterQuery, UpdateQuery } from "mongoose"
 
 const PRIVATE_CHARACTERS: string[] = []
 
@@ -69,4 +69,23 @@ export async function getOwners(ids: string[]) {
         })
     }
     return characters
+}
+
+export async function updateCharacter(name: string, data: Partial<CharacterData> & { serverIdentifier?: ServerIdentifier, serverRegion?: ServerRegion }): Promise<void> {
+    const update: UpdateQuery<IPlayerDocument> = {
+        lastUpdated: Date.now()
+    }
+
+    if (data.in) update.in = data.in
+    if (Array.isArray(data.items)) update.items = data.items
+    if (data.party) update.party = data.party
+    if (data.rip !== undefined) update.rip = data.rip
+    if (data.serverIdentifier) update.serverIdentifier = data.serverIdentifier
+    if (data.serverRegion) update.serverRegion = data.serverRegion
+    if (data.slots) update.slots = data.slots
+    if (data.s) update.s = data.s
+    if (data.x !== undefined) update.x = data.x
+    if (data.y !== undefined) update.y = data.y
+
+    await AL.PlayerModel.updateOne({ name: name }, update, { upsert: true })
 }
