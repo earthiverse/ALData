@@ -9,7 +9,7 @@ import nocache from "nocache"
 import { getAchievements, getAchievementsForMonster, updateAchievements } from "./achievements.js"
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
-import { getCharacters, getOwners } from "./characters.js"
+import { getCharacters, getCharactersForOwner, getOwners } from "./characters.js"
 import { getMerchants } from "./merchants.js"
 import { getHalloweenMonsterPriority, getHolidayMonsterPriority, getLunarNewYearMonsterPriority, getMonsters } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
@@ -346,30 +346,44 @@ app.get("/npcs/:ids/:serverRegion?/:serverIdentifier?", async (request, response
     }
 })
 
+app.get("/owner/:owner", async (request, response) => {
+    const ownerId = request.params.owner
+    try {
+        const bank = await getBank(ownerId)
+        const characters = await getCharactersForOwner(ownerId)
+        response.status(200).send({
+            bank: bank,
+            characters: characters
+        })
+    } catch (e) {
+        response.status(500).send()
+        return
+    }
+})
 
 // Setup Owner Retrieval
-app.get("/owner/:id", async (request, response) => {
-    const id = request.params.id
+// TODO: Move this to a new endpoint?
+// app.get("/owner/:id", async (request, response) => {
+//     const id = request.params.id
+//     try {
+//         const owners = await getOwners([id])
+//         response.status(200).send(owners[0])
+//     } catch (e) {
+//         response.status(500).send()
+//         return
+//     }
+// })
+// app.get("/owners/:ids", async (request, response) => {
+//     const ids = request.params.ids.split(",")
 
-    try {
-        const owners = await getOwners([id])
-        response.status(200).send(owners[0])
-    } catch (e) {
-        response.status(500).send()
-        return
-    }
-})
-app.get("/owners/:ids", async (request, response) => {
-    const ids = request.params.ids.split(",")
-
-    try {
-        const owners = await getOwners(ids)
-        response.status(200).send(owners)
-    } catch (e) {
-        response.status(500).send()
-        return
-    }
-})
+//     try {
+//         const owners = await getOwners(ids)
+//         response.status(200).send(owners)
+//     } catch (e) {
+//         response.status(500).send()
+//         return
+//     }
+// })
 
 // Setup Path Retrieval
 app.get("/path/:from/:to", async (request, response) => {

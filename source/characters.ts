@@ -32,6 +32,26 @@ export async function getCharacters(ids: string[]) {
     return characters
 }
 
+export async function getCharactersForOwner(ownerId: string) {
+    const filter: FilterQuery<IPlayerDocument> = { name: { $nin: PRIVATE_CHARACTERS }, owner: ownerId }
+
+    const characters = []
+    for (const character of await AL.PlayerModel.find(filter, {
+        items: 1,
+        lastSeen: 1,
+        name: 1,
+        slots: 1
+    }).lean().exec()) {
+        characters.push({
+            id: character.name,
+            items: character.items,
+            lastSeen: new Date(character.lastSeen).toISOString(),
+            slots: character.slots
+        })
+    }
+    return characters
+}
+
 export async function getOwners(ids: string[]) {
     ids = ids.filter(x => !PRIVATE_CHARACTERS.includes(x))
     if (ids.length == 0) return []
