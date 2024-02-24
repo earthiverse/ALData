@@ -171,6 +171,29 @@ app.put("/achievements/:id/:key", async (request, response) => {
     }
 })
 
+// Active owners of ALData
+app.get("/active-owners", async (_request, response) => {
+    try {
+        const ownerData = await AL.BankModel.aggregate([
+            {
+                $match: {
+                    lastUpdated: { $gt: 1708151687749 }
+                }
+            },
+            { $project: { _id: 0, owner: 1 } }
+        ]).exec()
+        const owners = []
+        for (const ownerDatum of ownerData) {
+            owners.push(ownerDatum.owner)
+        }
+        response.status(200).send(owners)
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
+        return
+    }
+})
+
 // Setup Authentication Check
 app.get("/auth/:id/:key?", async (request, response) => {
     const id = request.params.id
