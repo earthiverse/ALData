@@ -174,18 +174,37 @@ app.put("/achievements/:id/:key", async (request, response) => {
 // Active owners of ALData
 app.get("/active-owners", async (_request, response) => {
     try {
-        const ownerData = await AL.BankModel.aggregate([
+        const owners = await AL.BankModel.aggregate([
             {
                 $match: {
-                    lastUpdated: { $gt: 1708151687749 }
+                    lastUpdated: { $gt: Date.now() - 6.048e+8 }
                 }
             },
-            { $project: { _id: 0, owner: 1 } }
+            {
+                $lookup: {
+                    as: "players",
+                    foreignField: "owner",
+                    from: "players",
+                    localField: "owner",
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    characters: {
+                        $map: {
+                            as: "player",
+                            in: "$$player.name",
+                            input: "$players",
+                        },
+                    },
+                    discord: {
+                        $arrayElemAt: ["$players.discord", 0],
+                    },
+                    owner: 1,
+                }
+            }
         ]).exec()
-        const owners = []
-        for (const ownerDatum of ownerData) {
-            owners.push(ownerDatum.owner)
-        }
         response.status(200).send(owners)
     } catch (e) {
         response.status(500).send()
