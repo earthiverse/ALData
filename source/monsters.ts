@@ -61,7 +61,7 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
 
 export async function getHalloweenMonsterPriority(observers: Observer[], includePVP = false) {
     const monsterPriority: MonsterName[] = ["mrpumpkin", "mrgreen"]
-    const serverPriority = ["EUI", "EUII", "USI", "USII", "USIII", "ASIAI", "EUPVP", "USPVP"]
+    const serverPriority = ["USI", "EUI", "USII", "USIII", "EUII", "ASIAI", "USPVP", "EUPVP"]
 
     const entities: {
         hp: number
@@ -168,7 +168,7 @@ export async function getHalloweenMonsterPriority(observers: Observer[], include
 
 export async function getHolidayMonsterPriority(observers: Observer[], includePVP = false) {
     const monsterPriority: MonsterName[] = ["grinch", "snowman"]
-    const serverPriority = ["EUI", "EUII", "USI", "USII", "USIII", "ASIAI", "EUPVP", "USPVP"]
+    const serverPriority = ["USI", "EUI", "USII", "USIII", "EUII", "ASIAI", "USPVP", "EUPVP"]
 
     const entities: {
         hp: number
@@ -275,7 +275,7 @@ export async function getHolidayMonsterPriority(observers: Observer[], includePV
 
 export async function getLunarNewYearMonsterPriority(observers: Observer[], includePVP = false) {
     const monsterPriority: MonsterName[] = ["dragold", "tiger"]
-    const serverPriority = ["EUI", "EUII", "USI", "USII", "USIII", "ASIAI", "EUPVP", "USPVP"]
+    const serverPriority = ["USI", "EUI", "USII", "USIII", "EUII", "ASIAI", "USPVP", "EUPVP"]
 
     const entities: {
         hp: number
