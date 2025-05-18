@@ -1,4 +1,4 @@
-import AL, { MapName, MonsterName, Observer, ServerIdentifier, ServerRegion } from "alclient"
+import AL, { ItemData, ItemName, MapName, MonsterName, Observer, ServerIdentifier, ServerRegion } from "alclient"
 import bodyParser from "body-parser"
 import cors from "cors"
 import express from "express"
@@ -11,8 +11,14 @@ import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getCharactersForOwner, getOwners, updateCharacter } from "./characters.js"
 import { getMerchants } from "./merchants.js"
-import { getHalloweenMonsterPriority, getHolidayMonsterPriority, getLunarNewYearMonsterPriority, getMonsters } from "./monsters.js"
+import {
+    getHalloweenMonsterPriority,
+    getHolidayMonsterPriority,
+    getLunarNewYearMonsterPriority,
+    getMonsters,
+} from "./monsters.js"
 import { getNPCs } from "./npcs.js"
+import { min_upgrade_cost } from "./upgrade.js"
 
 // Setup Express
 const app = express()
@@ -81,7 +87,7 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
                     // We don't have this username in our database
                     await AL.PlayerModel.create({
                         aldata: aldata_auth,
-                        name: name
+                        name: name,
                     })
                 }
 
@@ -153,7 +159,7 @@ app.put("/achievements/:id/:key", async (request, response) => {
     const id = request.params.id
     const key = request.params.key
 
-    if (!await checkAuthByName(id, key)) {
+    if (!(await checkAuthByName(id, key))) {
         // Failed authentication
         response.status(401).send()
         return
@@ -177,8 +183,8 @@ app.get("/active-owners", async (_request, response) => {
         const owners = await AL.BankModel.aggregate([
             {
                 $match: {
-                    lastUpdated: { $gt: Date.now() - 6.048e+8 }
-                }
+                    lastUpdated: { $gt: Date.now() - 6.048e8 },
+                },
             },
             {
                 $lookup: {
@@ -186,7 +192,7 @@ app.get("/active-owners", async (_request, response) => {
                     foreignField: "owner",
                     from: "players",
                     localField: "owner",
-                }
+                },
             },
             {
                 $project: {
@@ -202,8 +208,8 @@ app.get("/active-owners", async (_request, response) => {
                         $arrayElemAt: ["$players.discord", 0],
                     },
                     owner: 1,
-                }
-            }
+                },
+            },
         ]).exec()
         response.status(200).send(owners)
     } catch (e) {
@@ -242,7 +248,7 @@ app.put("/bank/:owner/:key", async (request, response) => {
     const owner = request.params.owner
     const key = request.params.key
 
-    if (!await checkAuthByOwner(owner, key)) {
+    if (!(await checkAuthByOwner(owner, key))) {
         // Failed authentication
         response.status(401).send()
         return
@@ -275,7 +281,7 @@ app.put("/character/:id/:key", async (request, response) => {
     const id = request.params.id
     const key = request.params.key
 
-    if (!await checkAuthByName(id, key)) {
+    if (!(await checkAuthByName(id, key))) {
         // Failed authentication
         response.status(401).send()
         return
@@ -416,7 +422,7 @@ app.get("/owner/:owner", async (request, response) => {
         const characters = await getCharactersForOwner(ownerId)
         response.status(200).send({
             bank: bank,
-            characters: characters
+            characters: characters,
         })
     } catch (e) {
         response.status(500).send()
@@ -484,15 +490,18 @@ app.get("/path/:from/:to", async (request, response) => {
     const toY = Number.parseFloat(toYString)
 
     try {
-        const path = await AL.Pathfinder.getPath({
-            map: fromMap,
-            x: fromX,
-            y: fromY
-        }, {
-            map: toMap,
-            x: toX,
-            y: toY
-        })
+        const path = await AL.Pathfinder.getPath(
+            {
+                map: fromMap,
+                x: fromX,
+                y: fromY,
+            },
+            {
+                map: toMap,
+                x: toX,
+                y: toY,
+            },
+        )
         response.status(200).send(path)
         return
     } catch (e) {
@@ -500,6 +509,47 @@ app.get("/path/:from/:to", async (request, response) => {
         response.status(500).send()
         return
     }
+})
+
+app.get("/upgrade/:itemName/:itemValue?", (request, response) => {
+    const itemName = request.params.itemName as ItemName
+    const gItem = AL.Game.G.items[itemName]
+    if (!gItem || gItem.upgrade === undefined) {
+        return response.status(400).send()
+    }
+
+    let price = !request.params.itemValue ? gItem.g : Number.parseInt(request.params.itemValue)
+    if (Number.isNaN(price)) {
+        return response.status(400).send()
+    }
+
+    const item: ItemData = {
+        name: itemName,
+        grace: 0,
+        level: 0,
+    }
+    const history = {}
+    for (let i = 1; i <= 12; i++) {
+        const {
+            resulting_cost: new_price,
+            resulting_grace,
+            resulting_chance,
+            winning_config,
+        } = min_upgrade_cost(price, item, false, true, false, true)
+        history[i] = {
+            new_price,
+            resulting_chance,
+            resulting_grace,
+            scroll: winning_config[0],
+            offering: winning_config[1],
+            stacks: winning_config[2],
+        }
+        item.grace = resulting_grace
+        item.level += 1
+        price = new_price
+    }
+
+    response.status(200).send(history)
 })
 
 // Start the server
