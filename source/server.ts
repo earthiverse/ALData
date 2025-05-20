@@ -525,8 +525,8 @@ app.get("/upgrade/:itemName/:itemValue?", (request, response) => {
 
     const item: ItemData = {
         name: itemName,
-        grace: request.query.grace ? 0 : Number.parseInt(request.query.grace as string) || 0,
-        level: request.query.level ? 0 : Number.parseInt(request.query.level as string) || 0,
+        grace: request.query.grace ? Number.parseInt(request.query.grace as string) || 0 : 0,
+        level: request.query.level ? Number.parseInt(request.query.level as string) || 0 : 0,
     }
     const history = {}
     for (let i = item.level + 1; i <= gItem.grades[3]; i++) {
