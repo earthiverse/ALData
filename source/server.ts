@@ -511,7 +511,7 @@ app.get("/path/:from/:to", async (request, response) => {
     }
 })
 
-app.get("/upgrade/:itemName/:itemValue?/:grace?/:level?", (request, response) => {
+app.get("/upgrade/:itemName/:itemValue?/:level?/:grace?", (request, response) => {
     const itemName = request.params.itemName as ItemName
     const gItem = AL.Game.G.items[itemName]
     if (!gItem || gItem.upgrade === undefined) {
