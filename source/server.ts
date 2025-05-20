@@ -535,7 +535,7 @@ app.get("/upgrade/:itemName/:itemValue?", (request, response) => {
             resulting_grace,
             resulting_chance,
             winning_config,
-        } = min_upgrade_cost(price, item, false, true, false, true)
+        } = min_upgrade_cost(price, item, false, true)
         history[i] = {
             new_price,
             resulting_chance,
