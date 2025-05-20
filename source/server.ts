@@ -511,22 +511,32 @@ app.get("/path/:from/:to", async (request, response) => {
     }
 })
 
-app.get("/upgrade/:itemName/:itemValue?", (request, response) => {
+app.get("/upgrade/:itemName/:itemValue?/:grace?/:level?", (request, response) => {
     const itemName = request.params.itemName as ItemName
     const gItem = AL.Game.G.items[itemName]
     if (!gItem || gItem.upgrade === undefined) {
         return response.status(400).send()
     }
 
-    let price = !request.params.itemValue ? gItem.g : Number.parseInt(request.params.itemValue)
+    let price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
     if (Number.isNaN(price)) {
+        return response.status(400).send()
+    }
+
+    const grace = request.params.grace ? Number.parseInt(request.params.grace) : 0
+    if (Number.isNaN(grace)) {
+        return response.status(400).send()
+    }
+
+    const level = request.params.level ? Number.parseInt(request.params.level) : 0
+    if (Number.isNaN(level)) {
         return response.status(400).send()
     }
 
     const item: ItemData = {
         name: itemName,
-        grace: request.query.grace ? Number.parseInt(request.query.grace as string) || 0 : 0,
-        level: request.query.level ? Number.parseInt(request.query.level as string) || 0 : 0,
+        grace,
+        level,
     }
     const history = {}
     for (let i = item.level + 1; i <= gItem.grades[3]; i++) {
