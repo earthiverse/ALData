@@ -1,14 +1,46 @@
-import AL, { MapName, MonsterName, Observer, ServerIdentifier, ServerInfoDataLive, ServerInfoDataNotLive, ServerRegion } from "alclient"
+import AL, {
+    MapName,
+    MonsterName,
+    Observer,
+    ServerIdentifier,
+    ServerInfoDataLive,
+    ServerInfoDataNotLive,
+    ServerRegion,
+} from "alclient"
 
-const PRIVATE_MONSTERS: string[] = [
+const PRIVATE_MONSTERS: MonsterName[] = [
     // Very rare monsters
-    "cutebee", "goldenbat",
+    "cutebee",
+    "goldenbat",
     // Crypt monsters
-    "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "vbat", "xmagefi", "xmagefz", "xmagen", "xmagex"
+    "a1",
+    "a2",
+    "a3",
+    "a4",
+    "a5",
+    "a6",
+    "a7",
+    "a8",
+    "vbat",
+    "xmagefi",
+    "xmagefz",
+    "xmagen",
+    "xmagex",
+    "gbluepro",
+    "ggreenpro",
+    "gredpro",
+    "gpurplepro",
+    "spiderbl",
+    "spiderbr",
+    "spiderr",
 ]
 
-export async function getMonsters(types: MonsterName[], serverRegion?: ServerRegion, serverIdentifier?: ServerIdentifier) {
-    types = types.filter(x => !PRIVATE_MONSTERS.includes(x))
+export async function getMonsters(
+    types: MonsterName[],
+    serverRegion?: ServerRegion,
+    serverIdentifier?: ServerIdentifier,
+) {
+    types = types.filter((x) => !PRIVATE_MONSTERS.includes(x))
     if (types.length == 0) return []
 
     const entitiesFilters = { lastSeen: { $gt: Date.now() - 300000 }, type: { $in: types } }
@@ -44,7 +76,7 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
             target: entity.target,
             type: entity.type,
             x: entity.x,
-            y: entity.y
+            y: entity.y,
         })
     }
     for (const respawn of respawns) {
@@ -52,7 +84,7 @@ export async function getMonsters(types: MonsterName[], serverRegion?: ServerReg
             estimatedRespawn: new Date(respawn.estimatedRespawn).toISOString(),
             serverIdentifier: respawn.serverIdentifier,
             serverRegion: respawn.serverRegion,
-            type: respawn.type
+            type: respawn.type,
         })
     }
 
@@ -101,16 +133,16 @@ export async function getHalloweenMonsterPriority(observers: Observer[], include
                     target: data.target,
                     type: monster,
                     x: data.x,
-                    y: data.y
+                    y: data.y,
                 })
             } else if (observer.S[monster]) {
                 const data = observer.S[monster] as ServerInfoDataNotLive
-                const spawn = new Date((new Date(data.spawn)).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
+                const spawn = new Date(new Date(data.spawn).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
                 respawns.push({
                     estimatedRespawn: spawn,
                     serverIdentifier: serverIdentifier,
                     serverRegion: serverRegion,
-                    type: monster
+                    type: monster,
                 })
             }
         }
@@ -151,7 +183,7 @@ export async function getHalloweenMonsterPriority(observers: Observer[], include
             target: entity.target,
             type: entity.type,
             x: entity.x,
-            y: entity.y
+            y: entity.y,
         })
     }
     for (const respawn of respawns) {
@@ -159,7 +191,7 @@ export async function getHalloweenMonsterPriority(observers: Observer[], include
             estimatedRespawn: respawn.estimatedRespawn.toISOString(),
             serverIdentifier: respawn.serverIdentifier,
             serverRegion: respawn.serverRegion,
-            type: respawn.type
+            type: respawn.type,
         })
     }
 
@@ -208,16 +240,16 @@ export async function getHolidayMonsterPriority(observers: Observer[], includePV
                     target: data.target,
                     type: monster,
                     x: data.x,
-                    y: data.y
+                    y: data.y,
                 })
             } else if (observer.S[monster]) {
                 const data = observer.S[monster] as ServerInfoDataNotLive
-                const spawn = new Date((new Date(data.spawn)).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
+                const spawn = new Date(new Date(data.spawn).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
                 respawns.push({
                     estimatedRespawn: spawn,
                     serverIdentifier: serverIdentifier,
                     serverRegion: serverRegion,
-                    type: monster
+                    type: monster,
                 })
             }
         }
@@ -258,7 +290,7 @@ export async function getHolidayMonsterPriority(observers: Observer[], includePV
             target: entity.target,
             type: entity.type,
             x: entity.x,
-            y: entity.y
+            y: entity.y,
         })
     }
     for (const respawn of respawns) {
@@ -266,7 +298,7 @@ export async function getHolidayMonsterPriority(observers: Observer[], includePV
             estimatedRespawn: respawn.estimatedRespawn.toISOString(),
             serverIdentifier: respawn.serverIdentifier,
             serverRegion: respawn.serverRegion,
-            type: respawn.type
+            type: respawn.type,
         })
     }
 
@@ -315,16 +347,16 @@ export async function getLunarNewYearMonsterPriority(observers: Observer[], incl
                     target: data.target,
                     type: monster,
                     x: data.x,
-                    y: data.y
+                    y: data.y,
                 })
             } else if (observer.S[monster]) {
                 const data = observer.S[monster] as ServerInfoDataNotLive
-                const spawn = new Date((new Date(data.spawn)).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
+                const spawn = new Date(new Date(data.spawn).getTime() + (serverIdentifier == "PVP" ? 20_000 : 0))
                 respawns.push({
                     estimatedRespawn: spawn,
                     serverIdentifier: serverIdentifier,
                     serverRegion: serverRegion,
-                    type: monster
+                    type: monster,
                 })
             }
         }
@@ -365,7 +397,7 @@ export async function getLunarNewYearMonsterPriority(observers: Observer[], incl
             target: entity.target,
             type: entity.type,
             x: entity.x,
-            y: entity.y
+            y: entity.y,
         })
     }
     for (const respawn of respawns) {
@@ -373,7 +405,7 @@ export async function getLunarNewYearMonsterPriority(observers: Observer[], incl
             estimatedRespawn: respawn.estimatedRespawn.toISOString(),
             serverIdentifier: respawn.serverIdentifier,
             serverRegion: respawn.serverRegion,
-            type: respawn.type
+            type: respawn.type,
         })
     }
 
