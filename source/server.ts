@@ -18,7 +18,7 @@ import {
     getMonsters,
 } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
-import { min_upgrade_cost } from "./upgrade.js"
+import { min_compound_cost, min_upgrade_cost } from "./upgrade.js"
 
 // Setup Express
 const app = express()
@@ -546,6 +546,57 @@ app.get("/upgrade/:itemName/:itemValue?/:level?/:grace?", (request, response) =>
             resulting_chance,
             winning_config,
         } = min_upgrade_cost(price, item, false, true)
+        history[i] = {
+            new_price,
+            resulting_chance,
+            resulting_grace,
+            scroll: winning_config[0],
+            offering: winning_config[1],
+            stacks: winning_config[2],
+        }
+        item.grace = resulting_grace
+        item.level += 1
+        price = new_price
+    }
+
+    response.status(200).send(history)
+})
+
+app.get("/compound/:itemName/:itemValue?/:level?/:grace?", (request, response) => {
+    const itemName = request.params.itemName as ItemName
+    const gItem = AL.Game.G.items[itemName]
+    if (!gItem || gItem.compound === undefined) {
+        return response.status(400).send()
+    }
+
+    let price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
+    if (Number.isNaN(price)) {
+        return response.status(400).send()
+    }
+
+    const grace = request.params.grace ? Number.parseInt(request.params.grace) : 0
+    if (Number.isNaN(grace)) {
+        return response.status(400).send()
+    }
+
+    const level = request.params.level ? Number.parseInt(request.params.level) : 0
+    if (Number.isNaN(level)) {
+        return response.status(400).send()
+    }
+
+    const item: ItemData = {
+        name: itemName,
+        grace,
+        level,
+    }
+    const history = {}
+    for (let i = item.level + 1; i <= gItem.grades[3]; i++) {
+        const {
+            resulting_cost: new_price,
+            resulting_grace,
+            resulting_chance,
+            winning_config,
+        } = min_compound_cost(price, item, false, true)
         history[i] = {
             new_price,
             resulting_chance,
