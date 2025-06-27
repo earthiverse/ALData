@@ -115,8 +115,14 @@ export function min_upgrade_cost(
     ]
     const offerings = [null, AL.Game.G.items.offeringp, AL.Game.G.items.offering, AL.Game.G.items.offeringx]
     const costs = {
-        scroll: [1000, 40000, 1600000, 480000000, Infinity],
-        offering: [0, 1500000, 27420000, 800000000],
+        scroll: [
+            AL.Game.G.items.scroll0.g,
+            AL.Game.G.items.scroll1.g,
+            AL.Game.G.items.scroll2.g,
+            AL.Game.G.items.scroll3.g,
+            Infinity,
+        ],
+        offering: [0, 1500000, AL.Game.G.items.offering.g, 800000000],
     }
 
     const grade = new Item(item, AL.Game.G).calculateGrade()
@@ -190,8 +196,14 @@ export function min_compound_cost(
     const offerings = [null, AL.Game.G.items.offeringp, AL.Game.G.items.offering, AL.Game.G.items.offeringx]
     const grade = new Item(item, AL.Game.G).calculateGrade()
     const costs = {
-        scroll: [6400, 240000, 9200000, 1840000000, Infinity],
-        offering: [0, 1500000, 27420000, 800000000],
+        scroll: [
+            AL.Game.G.items.cscroll0.g,
+            AL.Game.G.items.cscroll1.g,
+            AL.Game.G.items.cscroll2.g,
+            AL.Game.G.items.cscroll3.g,
+            Infinity,
+        ],
+        offering: [0, 1500000, AL.Game.G.items.offering.g, 800000000],
     }
     let resulting_cost = Infinity
     let resulting_chance = 0
