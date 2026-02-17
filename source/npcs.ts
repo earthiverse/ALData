@@ -3,7 +3,7 @@ import AL, { ServerIdentifier, ServerRegion } from "alclient"
 const PRIVATE_NPCS: string[] = []
 
 export async function getNPCs(ids: string[], serverRegion?: ServerRegion, serverIdentifier?: ServerIdentifier) {
-    ids = ids.filter(x => !PRIVATE_NPCS.includes(x))
+    ids = ids.filter((x) => !PRIVATE_NPCS.includes(x))
     if (ids.length == 0) return []
 
     const filters = { name: { $in: ids } }
@@ -20,7 +20,7 @@ export async function getNPCs(ids: string[], serverRegion?: ServerRegion, server
             serverIdentifier: npc.serverIdentifier,
             serverRegion: npc.serverRegion,
             x: npc.x,
-            y: npc.y
+            y: npc.y,
         })
     }
     return npcs

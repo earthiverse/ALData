@@ -1,4 +1,4 @@
-import AL, { ItemData, ItemName, MapName, MonsterName, Observer, ServerIdentifier, ServerRegion } from "alclient"
+import AL, { MapName, MonsterName, Observer, ServerIdentifier, ServerRegion } from "alclient"
 import bodyParser from "body-parser"
 import cors from "cors"
 import express from "express"
@@ -18,7 +18,12 @@ import {
     getMonsters,
 } from "./monsters.js"
 import { getNPCs } from "./npcs.js"
-import { min_compound_cost, min_upgrade_cost } from "./upgrade.js"
+import {
+    calculateOptimalCompoundPath,
+    calculateOptimalUpgradePath,
+    getScrollAndOfferingPricesFromG,
+} from "./upgrade.js"
+import { ItemKey } from "typed-adventureland"
 
 // Setup Express
 const app = express()
@@ -123,6 +128,9 @@ if ((credentials.email && credentials.password) || (credentials.userAuth && cred
     // Prepare Pathfinding
     AL.Pathfinder.prepare(AL.Game.G)
 }
+
+// Populate scroll and offering prices
+getScrollAndOfferingPricesFromG(AL.Game.G)
 
 // Redirect base URL to README
 app.get("/", async (request, response) => {
@@ -511,106 +519,92 @@ app.get("/path/:from/:to", async (request, response) => {
     }
 })
 
-app.get("/upgrade/:itemName/:itemValue?/:level?/:grace?", (request, response) => {
-    const itemName = request.params.itemName as ItemName
+app.get("/upgrade/:itemName/:itemValue?", (request, response) => {
+    const itemName = request.params.itemName as ItemKey
     const gItem = AL.Game.G.items[itemName]
     if (!gItem || gItem.upgrade === undefined) {
         return response.status(400).send()
     }
 
-    let price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
+    const price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
     if (Number.isNaN(price)) {
         return response.status(400).send()
     }
 
-    const grace = request.params.grace ? Number.parseInt(request.params.grace) : 0
-    if (Number.isNaN(grace)) {
+    const level = request.query.level ? Number.parseInt(request.query.level as string) : 0
+    if (Number.isNaN(level) || level < 0) {
         return response.status(400).send()
     }
 
-    const level = request.params.level ? Number.parseInt(request.params.level) : 0
-    if (Number.isNaN(level)) {
+    const grace = request.query.grace ? Number.parseFloat(request.query.grace as string) : 0
+    if (Number.isNaN(grace) || grace < 0) {
         return response.status(400).send()
     }
 
-    const item: ItemData = {
-        name: itemName,
-        grace,
-        level,
-    }
-    const history = {}
-    for (let i = item.level + 1; i <= gItem.grades[3]; i++) {
-        const {
-            resulting_cost: new_price,
-            resulting_grace,
-            resulting_chance,
-            winning_config,
-        } = min_upgrade_cost(price, item, false, true)
-        history[i] = {
-            new_price,
-            resulting_chance,
-            resulting_grace,
-            scroll: winning_config[0],
-            offering: winning_config[1],
-            stacks: winning_config[2],
-        }
-        item.grace = resulting_grace
-        item.level += 1
-        price = new_price
+    const targetLevel = request.query.targetLevel ? Number.parseInt(request.query.targetLevel as string) : undefined
+    if (
+        targetLevel !== undefined &&
+        (Number.isNaN(targetLevel) || targetLevel < 0 || targetLevel > 12 || targetLevel <= level)
+    ) {
+        return response.status(400).send()
     }
 
-    response.status(200).send(history)
+    response.status(200).send(
+        calculateOptimalUpgradePath(
+            {
+                level,
+                name: itemName,
+            },
+            price,
+            AL.Game.G,
+            grace,
+            targetLevel,
+        ),
+    )
 })
 
-app.get("/compound/:itemName/:itemValue?/:level?/:grace?", (request, response) => {
-    const itemName = request.params.itemName as ItemName
+app.get("/compound/:itemName/:itemValue?", (request, response) => {
+    const itemName = request.params.itemName as ItemKey
     const gItem = AL.Game.G.items[itemName]
     if (!gItem || gItem.compound === undefined) {
         return response.status(400).send()
     }
 
-    let price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
+    const price = request.params.itemValue ? Number.parseInt(request.params.itemValue) : gItem.g
     if (Number.isNaN(price)) {
         return response.status(400).send()
     }
 
-    const grace = request.params.grace ? Number.parseInt(request.params.grace) : 0
-    if (Number.isNaN(grace)) {
+    const level = request.query.level ? Number.parseInt(request.query.level as string) : 0
+    if (Number.isNaN(level) || level < 0) {
         return response.status(400).send()
     }
 
-    const level = request.params.level ? Number.parseInt(request.params.level) : 0
-    if (Number.isNaN(level)) {
+    const grace = request.query.grace ? Number.parseFloat(request.query.grace as string) : 0
+    if (Number.isNaN(grace) || grace < 0) {
         return response.status(400).send()
     }
 
-    const item: ItemData = {
-        name: itemName,
-        grace,
-        level,
-    }
-    const history = {}
-    for (let i = item.level + 1; i <= gItem.grades[3]; i++) {
-        const {
-            resulting_cost: new_price,
-            resulting_grace,
-            resulting_chance,
-            winning_config,
-        } = min_compound_cost(price, item, false, true)
-        history[i] = {
-            new_price,
-            resulting_chance,
-            resulting_grace,
-            scroll: winning_config[0],
-            offering: winning_config[1],
-            stacks: winning_config[2],
-        }
-        item.grace = resulting_grace
-        item.level += 1
-        price = new_price
+    const targetLevel = request.query.targetLevel ? Number.parseInt(request.query.targetLevel as string) : undefined
+    if (
+        targetLevel !== undefined &&
+        (Number.isNaN(targetLevel) || targetLevel < 0 || targetLevel > 7 || targetLevel <= level)
+    ) {
+        return response.status(400).send()
     }
 
-    response.status(200).send(history)
+    response.status(200).send(
+        calculateOptimalCompoundPath(
+            {
+                level,
+                name: itemName,
+            },
+            price,
+            AL.Game.G,
+            grace,
+            targetLevel,
+        ),
+    )
 })
 
 // Start the server

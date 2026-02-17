@@ -1,4 +1,4 @@
-import AL, { IAchievement, TrackerData } from "alclient"
+import AL, { IAchievementDocument, TrackerData } from "alclient"
 import { MonsterName } from "alclient"
 
 /**
@@ -11,7 +11,7 @@ export type MonsterAchievementProgress = {
 
 const PRIVATE_ACHIEVEMENTS: string[] = []
 
-export async function getAchievements(ids: string[]): Promise<IAchievement[]> {
+export async function getAchievements(ids: string[]): Promise<IAchievementDocument[]> {
     ids = ids.filter((x) => !PRIVATE_ACHIEVEMENTS.includes(x))
     if (ids.length == 0) return []
 

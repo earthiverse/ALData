@@ -6,42 +6,42 @@ const PRIVATE_MERCHANTS: string[] = []
 export async function getMerchants(ids?: string[]) {
     const filter: FilterQuery<IPlayerDocument> = {
         $or: [
-            { "slots.trade1": { "$ne": undefined } },
-            { "slots.trade2": { "$ne": undefined } },
-            { "slots.trade3": { "$ne": undefined } },
-            { "slots.trade4": { "$ne": undefined } },
-            { "slots.trade5": { "$ne": undefined } },
-            { "slots.trade6": { "$ne": undefined } },
-            { "slots.trade7": { "$ne": undefined } },
-            { "slots.trade8": { "$ne": undefined } },
-            { "slots.trade9": { "$ne": undefined } },
-            { "slots.trade10": { "$ne": undefined } },
-            { "slots.trade11": { "$ne": undefined } },
-            { "slots.trade12": { "$ne": undefined } },
-            { "slots.trade13": { "$ne": undefined } },
-            { "slots.trade14": { "$ne": undefined } },
-            { "slots.trade15": { "$ne": undefined } },
-            { "slots.trade16": { "$ne": undefined } },
-            { "slots.trade17": { "$ne": undefined } },
-            { "slots.trade18": { "$ne": undefined } },
-            { "slots.trade19": { "$ne": undefined } },
-            { "slots.trade20": { "$ne": undefined } },
-            { "slots.trade21": { "$ne": undefined } },
-            { "slots.trade22": { "$ne": undefined } },
-            { "slots.trade23": { "$ne": undefined } },
-            { "slots.trade24": { "$ne": undefined } },
-            { "slots.trade25": { "$ne": undefined } },
-            { "slots.trade26": { "$ne": undefined } },
-            { "slots.trade27": { "$ne": undefined } },
-            { "slots.trade28": { "$ne": undefined } },
-            { "slots.trade29": { "$ne": undefined } },
-            { "slots.trade30": { "$ne": undefined } },
+            { "slots.trade1": { $ne: undefined } },
+            { "slots.trade2": { $ne: undefined } },
+            { "slots.trade3": { $ne: undefined } },
+            { "slots.trade4": { $ne: undefined } },
+            { "slots.trade5": { $ne: undefined } },
+            { "slots.trade6": { $ne: undefined } },
+            { "slots.trade7": { $ne: undefined } },
+            { "slots.trade8": { $ne: undefined } },
+            { "slots.trade9": { $ne: undefined } },
+            { "slots.trade10": { $ne: undefined } },
+            { "slots.trade11": { $ne: undefined } },
+            { "slots.trade12": { $ne: undefined } },
+            { "slots.trade13": { $ne: undefined } },
+            { "slots.trade14": { $ne: undefined } },
+            { "slots.trade15": { $ne: undefined } },
+            { "slots.trade16": { $ne: undefined } },
+            { "slots.trade17": { $ne: undefined } },
+            { "slots.trade18": { $ne: undefined } },
+            { "slots.trade19": { $ne: undefined } },
+            { "slots.trade20": { $ne: undefined } },
+            { "slots.trade21": { $ne: undefined } },
+            { "slots.trade22": { $ne: undefined } },
+            { "slots.trade23": { $ne: undefined } },
+            { "slots.trade24": { $ne: undefined } },
+            { "slots.trade25": { $ne: undefined } },
+            { "slots.trade26": { $ne: undefined } },
+            { "slots.trade27": { $ne: undefined } },
+            { "slots.trade28": { $ne: undefined } },
+            { "slots.trade29": { $ne: undefined } },
+            { "slots.trade30": { $ne: undefined } },
         ],
-        lastSeen: { $gt: Date.now() - 6.048e+8 } // Past week
+        lastSeen: { $gt: Date.now() - 6.048e8 }, // Past week
     }
 
     if (ids) {
-        ids = ids.filter(x => !PRIVATE_MERCHANTS.includes(x))
+        ids = ids.filter((x) => !PRIVATE_MERCHANTS.includes(x))
         if (ids.length == 0) return []
         filter.name = { $in: ids }
     }
@@ -84,8 +84,10 @@ export async function getMerchants(ids?: string[]) {
         "slots.trade29": 1,
         "slots.trade30": 1,
         x: 1,
-        y: 1
-    }).lean().exec()) {
+        y: 1,
+    })
+        .lean()
+        .exec()) {
         for (const slotName in merchant.slots) {
             const slot = merchant.slots[slotName as TradeSlotType]
 

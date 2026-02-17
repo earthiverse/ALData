@@ -37,7 +37,7 @@ export async function getAuthStatus(id: string, key: string): Promise<AuthRespon
     const response: AuthResponse = {
         auth: "NO",
         id: id,
-        owner: character.owner == undefined ? "NO" : "YES"
+        owner: character.owner == undefined ? "NO" : "YES",
     }
 
     if (character.aldata) {

@@ -1,8 +1,15 @@
-import AL, { Item, ItemData } from "alclient"
+import { GData, Item } from "alclient"
+import TinyQueue from "tinyqueue"
+import type { CompoundScrollKey, ItemInfo, ItemKey, OfferingKey, UpgradeScrollKey } from "typed-adventureland"
 
-// TODO: Make this prettier
-
-const COMPOUNDS = {
+/**
+ * BASE_COMPOUND_CHANCE[grade][level] -> chance
+ */
+const BASE_COMPOUND_CHANCE: {
+    [T in number]: {
+        [T in number]: number
+    }
+} = {
     0: {
         1: 0.99,
         2: 0.75,
@@ -41,7 +48,14 @@ const COMPOUNDS = {
     },
 }
 
-const UPGRADES = {
+/**
+ * BASE_UPGRADE_CHANCE[grade][level] -> chance
+ */
+const BASE_UPGRADE_CHANCE: {
+    [T in number]: {
+        [T in number]: number
+    }
+} = {
     0: {
         1: 0.9999999,
         2: 0.98,
@@ -86,284 +100,473 @@ const UPGRADES = {
     },
 }
 
-/**
- *
- * @param starting_cost
- * @param item
- * @param optimize_item If true, we will optimize for least items spent. If false, we will optimize for least cost.
- * @param use_scroll3
- * @param use_offeringx
- * @param lucky_slot
- * @param stacking
- * @returns
- */
-export function min_upgrade_cost(
-    starting_cost,
-    item: ItemData,
-    optimize_item: boolean,
-    use_scroll3 = false,
-    use_offeringx = false,
-    lucky_slot = false,
-    stacking = true,
+/** scroll -> price */
+const UPGRADE_SCROLLS: { [T in UpgradeScrollKey]?: number } = {}
+
+/** cscroll -> price */
+const COMPOUND_SCROLLS: { [T in CompoundScrollKey]?: number } = {}
+
+/** offering -> price */
+const OFFERINGS: { [T in OfferingKey]?: number } = {
+    offeringp: 2_500_000,
+    offeringx: 1_000_000_000,
+}
+
+export function getScrollAndOfferingPricesFromG(g: GData) {
+    UPGRADE_SCROLLS.scroll0 = g.items.scroll0.g
+    UPGRADE_SCROLLS.scroll1 = g.items.scroll1.g
+    UPGRADE_SCROLLS.scroll2 = g.items.scroll2.g
+    UPGRADE_SCROLLS.scroll3 = g.items.scroll3.g
+
+    COMPOUND_SCROLLS.cscroll0 = g.items.cscroll0.g
+    COMPOUND_SCROLLS.cscroll1 = g.items.cscroll1.g
+    COMPOUND_SCROLLS.cscroll2 = g.items.cscroll2.g
+    COMPOUND_SCROLLS.cscroll3 = g.items.cscroll3.g
+
+    OFFERINGS.offering = g.items.offering.g
+}
+
+export function calculateOptimalUpgradePath(
+    item: ItemInfo,
+    initialValue: number,
+    g: GData,
+    initialGrace = 0,
+    targetLevel: number | undefined = undefined,
 ) {
-    const scrolls = [
-        AL.Game.G.items.scroll0,
-        AL.Game.G.items.scroll1,
-        AL.Game.G.items.scroll2,
-        AL.Game.G.items.scroll3,
-        AL.Game.G.items.scroll4,
-    ]
-    const offerings = [null, AL.Game.G.items.offeringp, AL.Game.G.items.offering, AL.Game.G.items.offeringx]
-    const costs = {
-        scroll: [
-            AL.Game.G.items.scroll0.g,
-            AL.Game.G.items.scroll1.g,
-            AL.Game.G.items.scroll2.g,
-            AL.Game.G.items.scroll3.g,
-            Infinity,
-        ],
-        offering: [0, 1500000, AL.Game.G.items.offering.g, 800000000],
+    const maxLevel = g.items[item.name].grades![3]
+    if (targetLevel === undefined || targetLevel > maxLevel) targetLevel = maxLevel // Limit to its max
+    if ((item.level ?? 0) >= targetLevel) return undefined // Already reached
+
+    const levelZeroGrade = new Item({ name: item.name, level: 0 }, g).calculateGrade()
+    const igrace = levelZeroGrade === 0 ? 1 : levelZeroGrade === 1 ? -1 : -2
+
+    type MEMO_DATA = {
+        cost: number
+        method: { scroll: UpgradeScrollKey; offering?: OfferingKey } | "stack" | "initial"
+        previous: { level: number; grace: number } | undefined
+        chance: number
     }
 
-    const grade = new Item(item, AL.Game.G).calculateGrade()
-    let resulting_cost = Infinity
-    let resulting_chance = 0
-    let resulting_grace = 0
-    let winning_config = []
-    // Run test with the item's grade scroll, and the one above it (if it exists);
-    for (let i = grade; i <= grade + 1; i++) {
-        if ((i >= 3 && use_scroll3) || i < 3) {
-            // Then, we need to consider offerings, of which there are 4 possible choices.
-            for (let j = 0; j < 4; j++) {
-                if ((j == 3 && use_offeringx) || j != 3) {
-                    // k = number of sacrifices to make
-                    for (
-                        let k = 0;
-                        k < (stacking ? Math.max(0, Math.ceil((item.level + 2 - item.grace) / 0.5)) + 1 : 1);
-                        k++
-                    ) {
-                        const current_cost = starting_cost + costs.scroll[i] + costs.offering[j] + costs.offering[1] * k
-                        const new_item = {
-                            grace: item.grace + 0.5 * k,
-                            name: item.name,
-                            level: item.level,
-                        }
-                        let { chance: result_chance, new_grace } = getUpgradeChance(
-                            new_item,
-                            scrolls[i],
-                            offerings[j],
-                        ) as {
-                            chance: number
-                            new_grace: number
-                        }
-                        if (lucky_slot) {
-                            result_chance = 0.6 * Math.min(1, (result_chance + 0.012) / 0.975) + 0.4 * result_chance
-                        }
-                        if (
-                            optimize_item
-                                ? result_chance > resulting_chance
-                                : current_cost / result_chance < resulting_cost
-                        ) {
-                            resulting_cost = current_cost / result_chance
-                            resulting_chance = result_chance
-                            resulting_grace = new_grace
-                            winning_config = [i, j, k]
-                        }
-                    }
+    /** level -> max grace */
+    const maxGrace = new Map<number, number>()
+    /** level -> grace -> cost */
+    const memo = new Map<number, Map<number, MEMO_DATA>>()
+    const getMemo = (level: number, grace: number) => {
+        return memo.get(level)?.get(grace)
+    }
+    const setMemo = (
+        level: number,
+        grace: number,
+        cost: number,
+        previous: { level: number; grace: number } | undefined,
+        method: { scroll: UpgradeScrollKey; offering?: OfferingKey } | "stack" | "initial",
+        chance: number,
+    ) => {
+        if (!memo.has(level)) memo.set(level, new Map())
+        memo.get(level)!.set(grace, { cost, method, previous, chance })
+    }
+
+    const queue = new TinyQueue<{
+        cost: number
+        level: number
+        grace: number
+    }>([{ cost: initialValue, level: item.level, grace: initialGrace }], (a, b) => a.cost - b.cost)
+    setMemo(item.level, initialGrace, initialValue, undefined, "initial", 1)
+
+    while (queue.length > 0) {
+        const current = queue.pop()!
+        if (current.level >= targetLevel) continue // We're done
+
+        const previous = getMemo(current.level, current.grace)!
+        if (previous.cost < current.cost) continue // Not cheaper than our current path
+
+        const previousMaxGrace = maxGrace.get(current.level) ?? -1
+        if (current.grace < previousMaxGrace) continue // We had a lower cost with a higher grace (NOTE: because we visit lowest cost nodes first)
+        maxGrace.set(current.level, current.grace)
+
+        const currentItem = { name: item.name, level: current.level }
+
+        if (current.grace < Math.min(13, current.level + 2 - igrace)) {
+            const newGrace = Math.min(current.grace + 0.5, 13)
+            const primCost = OFFERINGS["offeringp"]!
+            const newCost = current.cost + primCost
+            const oldMemo = getMemo(current.level, newGrace)
+            if (!oldMemo || newCost < oldMemo.cost) {
+                setMemo(current.level, newGrace, newCost, { level: current.level, grace: current.grace }, "stack", 1)
+                queue.push({ cost: newCost, level: current.level, grace: newGrace })
+            }
+        }
+
+        const currentGrade = new Item(currentItem, g).calculateGrade()
+        for (let grade = currentGrade; grade <= Math.min(currentGrade + 1, 4); grade++) {
+            const scroll = `scroll${grade}` as UpgradeScrollKey
+            const scrollCost = UPGRADE_SCROLLS[scroll]
+            if (scrollCost === undefined) continue // We don't have a price for this scroll set
+            for (const offering of [...Object.keys(OFFERINGS), undefined] as (OfferingKey | undefined)[]) {
+                const { chance, newGrace } = calculateUpgradeChance(currentItem, current.grace, scroll, g, offering)
+                if (!chance) continue // Incompatible
+
+                const offeringCost = offering === undefined ? 0 : OFFERINGS[offering]!
+                const newCost = (current.cost + scrollCost + offeringCost) / chance
+                const newLevel = current.level + 1
+
+                const oldMemo = getMemo(newLevel, newGrace)
+                if (!oldMemo || newCost < oldMemo.cost) {
+                    setMemo(
+                        newLevel,
+                        newGrace,
+                        newCost,
+                        { level: current.level, grace: current.grace },
+                        { scroll: scroll, offering },
+                        chance,
+                    )
+                    queue.push({ cost: newCost, level: newLevel, grace: newGrace })
                 }
             }
         }
     }
-    return { resulting_cost, resulting_chance, resulting_grace, winning_config }
+
+    // Find the cheapest node for the target level
+    let finishGrace = Number.NEGATIVE_INFINITY
+    let finishDatum: MEMO_DATA | undefined = undefined
+    for (const [grace, datum] of memo.get(targetLevel)!.entries()) {
+        if (finishDatum && datum.cost >= finishDatum?.cost) continue // Not cheaper
+        finishGrace = grace
+        finishDatum = datum
+    }
+
+    // Construct the path to get to that node
+    const path: {
+        level: number
+        grace: number
+        scroll?: UpgradeScrollKey
+        offering?: OfferingKey
+        cost: number
+        chance: number
+    }[] = []
+
+    let datum: MEMO_DATA | undefined = finishDatum
+    let grace = finishGrace
+    let level = targetLevel
+
+    while (datum) {
+        let scroll: UpgradeScrollKey | undefined
+        let offering: OfferingKey | undefined
+        if (typeof datum.method === "object") {
+            scroll = datum.method.scroll
+            offering = datum.method.offering
+        } else if (datum.method === "stack") {
+            offering = "offeringp"
+        }
+
+        path.push({
+            level,
+            grace,
+            scroll,
+            offering,
+            cost: datum.cost,
+            chance: datum.chance,
+        })
+
+        if (!datum.previous) break
+
+        level = datum.previous.level
+        grace = datum.previous.grace
+        datum = memo.get(level)?.get(grace)
+    }
+
+    // Return the path
+    return path.reverse()
 }
 
-export function min_compound_cost(
-    starting_cost,
-    item: ItemData,
-    optimize_item: boolean,
-    use_scroll3 = false,
-    use_offeringx = false,
+export function calculateOptimalCompoundPath(
+    item: ItemInfo,
+    initialValue: number,
+    g: GData,
+    initialGrace = 0,
+    targetLevel: number | undefined = undefined,
 ) {
-    // optimize_item = true: Optimize for least items spent
-    // optimize_item = false: optimize for least cost
-    const scrolls = [
-        AL.Game.G.items.cscroll0,
-        AL.Game.G.items.cscroll1,
-        AL.Game.G.items.cscroll2,
-        AL.Game.G.items.cscroll3,
-        null,
-    ]
-    const offerings = [null, AL.Game.G.items.offeringp, AL.Game.G.items.offering, AL.Game.G.items.offeringx]
-    const grade = new Item(item, AL.Game.G).calculateGrade()
-    const costs = {
-        scroll: [
-            AL.Game.G.items.cscroll0.g,
-            AL.Game.G.items.cscroll1.g,
-            AL.Game.G.items.cscroll2.g,
-            AL.Game.G.items.cscroll3.g,
-            Infinity,
-        ],
-        offering: [0, 1500000, AL.Game.G.items.offering.g, 800000000],
+    const maxLevel = g.items[item.name].grades![3]
+    if (targetLevel === undefined || targetLevel > maxLevel) targetLevel = maxLevel // Limit to its max
+    if ((item.level ?? 0) >= targetLevel) return undefined // Already reached
+
+    type MEMO_DATA = {
+        cost: number
+        method: { scroll: CompoundScrollKey; offering?: OfferingKey } | "initial"
+        previous: { level: number; grace: number } | undefined
+        chance: number
     }
-    let resulting_cost = Infinity
-    let resulting_chance = 0
-    let resulting_grace = 0
-    let winning_config = []
-    // Run test with the item's grade scroll, and the one above it (if it exists);
-    for (let i = grade; i <= grade + 1; i++) {
-        if ((i >= 3 && use_scroll3) || i < 3) {
-            // Then, we need to consider offerings, of which there are 4 possible choices.
-            for (let j = 0; j < 4; j++) {
-                if ((j == 3 && use_offeringx) || j != 3) {
-                    const current_cost = starting_cost * 3 + costs.scroll[i] + costs.offering[j]
-                    const new_item = {
-                        grace: item.grace,
-                        name: item.name,
-                        level: item.level,
-                    }
-                    const { chance: result_chance, new_grace } = getCompoundChance(new_item, scrolls[i], offerings[j])
-                    if (
-                        optimize_item ? result_chance > resulting_chance : current_cost / result_chance < resulting_cost
-                    ) {
-                        resulting_cost = current_cost / result_chance
-                        resulting_chance = result_chance
-                        resulting_grace = new_grace
-                        winning_config = [i, j]
-                    }
+
+    /** level -> max grace */
+    const maxGrace = new Map<number, number>()
+    /** level -> grace -> cost */
+    const memo = new Map<number, Map<number, MEMO_DATA>>()
+    const getMemo = (level: number, grace: number) => {
+        return memo.get(level)?.get(grace)
+    }
+    const setMemo = (
+        level: number,
+        grace: number,
+        cost: number,
+        previous: { level: number; grace: number } | undefined,
+        method: { scroll: CompoundScrollKey; offering?: OfferingKey } | "initial",
+        chance: number,
+    ) => {
+        if (!memo.has(level)) memo.set(level, new Map())
+        memo.get(level)!.set(grace, { cost, method, previous, chance })
+    }
+
+    const queue = new TinyQueue<{
+        cost: number
+        level: number
+        grace: number
+    }>([{ cost: initialValue, level: item.level, grace: initialGrace }], (a, b) => a.cost - b.cost)
+    setMemo(item.level, initialGrace, initialValue, undefined, "initial", 1)
+
+    while (queue.length > 0) {
+        const current = queue.pop()!
+        if (current.level >= targetLevel) continue // We're done
+
+        const previous = getMemo(current.level, current.grace)!
+        if (previous.cost < current.cost) continue // Not cheaper than our current path
+
+        const previousMaxGrace = maxGrace.get(current.level) ?? -1
+        if (current.grace < previousMaxGrace) continue // We had a lower cost with a higher grace (NOTE: because we visit lowest cost nodes first)
+        maxGrace.set(current.level, current.grace)
+
+        const currentItem = { name: item.name, level: current.level }
+        const currentGrade = new Item(currentItem, g).calculateGrade()
+        for (let grade = currentGrade; grade <= Math.min(currentGrade + 1, 4); grade++) {
+            const scroll = `cscroll${grade}` as CompoundScrollKey
+            const scrollCost = COMPOUND_SCROLLS[scroll]
+            if (scrollCost === undefined) continue // We don't have a price for this scroll set
+            for (const offering of [...Object.keys(OFFERINGS), undefined] as (OfferingKey | undefined)[]) {
+                const { chance, newGrace } = calculateCompoundChance(currentItem, current.grace, scroll, g, offering)
+                if (!chance) continue // Incompatible
+
+                const offeringCost = offering === undefined ? 0 : OFFERINGS[offering]!
+                const newCost = (current.cost * 3 + scrollCost + offeringCost) / chance
+                const newLevel = current.level + 1
+
+                const oldMemo = getMemo(newLevel, newGrace)
+                if (!oldMemo || newCost < oldMemo.cost) {
+                    setMemo(
+                        newLevel,
+                        newGrace,
+                        newCost,
+                        { level: current.level, grace: current.grace },
+                        { scroll, offering },
+                        chance,
+                    )
+                    queue.push({ cost: newCost, level: newLevel, grace: newGrace })
                 }
             }
         }
     }
-    return { resulting_cost, resulting_chance, resulting_grace, winning_config }
+
+    // Find the cheapest node for the target level
+    let finishGrace = Number.NEGATIVE_INFINITY
+    let finishDatum: MEMO_DATA | undefined = undefined
+    for (const [grace, datum] of memo.get(targetLevel)!.entries()) {
+        if (finishDatum && datum.cost >= finishDatum?.cost) continue // Not cheaper
+        finishGrace = grace
+        finishDatum = datum
+    }
+
+    // Construct the path to get to that node
+    const path: {
+        level: number
+        grace: number
+        scroll?: CompoundScrollKey
+        offering?: OfferingKey
+        cost: number
+        chance: number
+    }[] = []
+
+    let datum: MEMO_DATA | undefined = finishDatum
+    let grace = finishGrace
+    let level = targetLevel
+
+    while (datum) {
+        let scroll: CompoundScrollKey | undefined
+        let offering: OfferingKey | undefined
+        if (typeof datum.method === "object") {
+            scroll = datum.method.scroll
+            offering = datum.method.offering
+        }
+
+        path.push({
+            level,
+            grace,
+            scroll,
+            offering,
+            cost: datum.cost,
+            chance: datum.chance,
+        })
+
+        if (!datum.previous) break
+
+        level = datum.previous.level
+        grace = datum.previous.grace
+        datum = memo.get(level)?.get(grace)
+    }
+
+    // Return the path
+    return path.reverse()
 }
 
-const ZERO_GRADE_CACHE = new Map()
-function getZeroGrade(item_name) {
-    if (ZERO_GRADE_CACHE.has(item_name)) {
-        return ZERO_GRADE_CACHE.get(item_name)
-    }
-    const mock = { name: item_name, level: 0 }
-    ZERO_GRADE_CACHE.set(item_name, new Item(mock, AL.Game.G).calculateGrade())
-    return ZERO_GRADE_CACHE.get(item_name)
-}
+function calculateUpgradeChance(
+    item: ItemInfo,
+    grace: number,
+    scroll: ItemKey,
+    g: GData,
+    offering: ItemKey | undefined = undefined,
+): { chance: number; newGrace: number } {
+    if (!scroll.startsWith("scroll")) return { chance: 0, newGrace: 0 }
 
-function getUpgradeChance(item, scroll_def, offering_def) {
-    let { name: item_name, grace: grace } = item
-    let new_grace = item.grace
-    const zero_grade = getZeroGrade(item_name)
-    const grade = new Item(item, AL.Game.G).calculateGrade()
-    if (grade > scroll_def.grade) {
-        return 0
-    }
-    let probability = 1
-    let oprobability = 1
+    const currentGrade = new Item({ name: item.name, level: item.level }, g).calculateGrade()
+    if (currentGrade === undefined) throw new Error("Unable to determine grade")
+
+    const scrollGrade = g.items[scroll].grade
+    if (scrollGrade === undefined || currentGrade > scrollGrade) return { chance: 0, newGrace: 0 }
+
+    const levelZeroGrade = item.level === 0 ? currentGrade : new Item({ name: item.name, level: 0 }, g).calculateGrade()
+    const nextLevel = (item.level ?? 0) + 1
+    const baseUpgradeChance = BASE_UPGRADE_CHANCE[levelZeroGrade]![nextLevel]!
+
+    let newGrace = grace
+    let chance = baseUpgradeChance
     let high = false
-    const new_level = (item.level || 0) + 1
-    oprobability = probability = UPGRADES[zero_grade][new_level]
-    let igrace
-    if (!zero_grade) {
+    let igrace: number
+    if (levelZeroGrade === 0) {
         igrace = 1
-    } else if (zero_grade == 1) {
+    } else if (levelZeroGrade == 1) {
         igrace = -1
-    } else if (zero_grade == 2) {
+    } else if (levelZeroGrade == 2) {
         igrace = -2
+    } else {
+        throw new Error("Unknown igrace")
     }
-    grace = Math.max(0, Math.min(new_level + 1, (item.grace || 0) + igrace))
-    grace = (probability * grace) / new_level + grace / 1000.0
-    if (scroll_def.grade > grade && new_level <= 10) {
-        probability = probability * 1.2 + 0.01
+    grace = Math.max(0, Math.min(nextLevel + 1, (grace || 0) + igrace))
+    grace = (chance * grace) / nextLevel + grace / 1000.0
+    if (scrollGrade > currentGrade && nextLevel <= 10) {
+        chance = chance * 1.2 + 0.01
         high = true
-        new_grace = new_grace + 0.4
+        newGrace = newGrace + 0.4
     }
-    if (offering_def) {
+    if (offering !== undefined) {
+        const offeringGrade = g.items[offering].grade
+        if (offeringGrade === undefined) throw new Error(`${offering} is not a valid offering`)
         let increase = 0.4
 
-        if (offering_def.grade > grade + 1) {
-            probability = probability * 1.7 + grace * 4
+        if (offeringGrade > currentGrade + 1) {
+            chance = chance * 1.7 + grace * 4
             high = true
             increase = 3
-        } else if (offering_def.grade > grade) {
-            probability = probability * 1.5 + grace * 1.2
+        } else if (offeringGrade > currentGrade) {
+            chance = chance * 1.5 + grace * 1.2
             high = true
             increase = 1
-        } else if (offering_def.grade == grade) {
-            probability = probability * 1.4 + grace
-        } else if (offering_def.grade == grade - 1) {
-            probability = probability * 1.15 + grace / 3.2
+        } else if (offeringGrade == currentGrade) {
+            chance = chance * 1.4 + grace
+        } else if (offeringGrade == currentGrade - 1) {
+            chance = chance * 1.15 + grace / 3.2
             increase = 0.2
         } else {
-            probability = probability * 1.08 + grace / 4
+            chance = chance * 1.08 + grace / 4
             increase = 0.1
         }
-        new_grace = new_grace + increase
+        newGrace = newGrace + increase
     } else {
-        grace = Math.max(0, grace / 4.8 - 0.4 / ((new_level - 0.999) * (new_level - 0.999)))
-        probability += grace // previously 12.0 // previously 9.0 [16/07/18]
+        grace = Math.max(0, grace / 4.8 - 0.4 / ((nextLevel - 0.999) * (nextLevel - 0.999)))
+        chance += grace
     }
     if (high) {
-        probability = Math.min(probability, Math.min(oprobability + 0.36, oprobability * 3))
+        chance = Math.min(chance, Math.min(baseUpgradeChance + 0.36, baseUpgradeChance * 3))
     } else {
-        probability = Math.min(probability, Math.min(oprobability + 0.24, oprobability * 2))
+        chance = Math.min(chance, Math.min(baseUpgradeChance + 0.24, baseUpgradeChance * 2))
     }
-    return { chance: Math.min(probability, 1), new_grace }
+    return { chance: Math.min(chance, 1), newGrace: Math.round(newGrace * 10) / 10 }
 }
 
-function getCompoundChance(item, scroll_def, offering_def) {
-    let { name: item_name, grace: grace } = item
-    let new_grace = item.grace
-    const zero_grade = getZeroGrade(item_name)
-    const grade = new Item(item, AL.Game.G).calculateGrade()
-    if (scroll_def == null || grade > scroll_def.grade) {
-        return { chance: 0, new_grace: 0 }
-    }
-    let probability = 1
-    let oprobability = 1
-    let high = 0
-    let grace_bonus = 0
-    const new_level = (item.level || 0) + 1
-    let igrade = zero_grade
-    if (item.level >= 3) {
-        igrade = new Item({ name: item.name, level: item.level - 2 }, AL.Game.G).calculateGrade()
-    }
-    oprobability = probability = COMPOUNDS[igrade][new_level]
-    if (scroll_def.grade > grade) {
-        probability = probability * 1.1 + 0.001
-        grace_bonus += 0.4
-        high = scroll_def.grade - grade
-    }
-    if (offering_def) {
-        let increase = 0.5
-        grace = 0.027 * (item.grace * 3 + 0.5)
+// TODO: I think boosters have a higher chance of being compounded, add that logic
+// TODO: lostearrings are strange, they have a different `compoundGrade` (`igrade` in game code)
+//       Add logic for those, and check if there are any different items like that
+/**
+ * @param item
+ * @param grace Average of the 3 item's graces
+ * @param scroll
+ * @param g
+ * @param offering
+ * @returns
+ */
+function calculateCompoundChance(
+    item: ItemInfo,
+    grace: number,
+    scroll: ItemKey,
+    g: GData,
+    offering: ItemKey | undefined = undefined,
+): { chance: number; newGrace: number } {
+    if (!scroll.startsWith("cscroll")) return { chance: 0, newGrace: 0 }
 
-        if (offering_def.grade > grade + 1) {
-            probability = probability * 1.64 + grace * 2
+    const currentGrade = new Item({ name: item.name, level: item.level }, g).calculateGrade()
+    if (currentGrade === undefined) throw new Error("Unable to determine grade")
+
+    const scrollGrade = g.items[scroll].grade
+    if (scrollGrade === undefined || currentGrade > scrollGrade) return { chance: 0, newGrace: 0 }
+
+    const levelZeroGrade = item.level === 0 ? currentGrade : new Item({ name: item.name, level: 0 }, g).calculateGrade()
+    const nextLevel = (item.level ?? 0) + 1
+    const compoundGrade =
+        (item.level ?? 0) < 3
+            ? levelZeroGrade
+            : new Item({ name: item.name, level: (item.level ?? 0) - 2 }, g).calculateGrade()
+    const baseCompoundChance = BASE_COMPOUND_CHANCE[compoundGrade]![nextLevel]!
+
+    let newGrace = grace
+    let chance = baseCompoundChance
+    let high = 0
+    let graceBonus = 0
+    if (scrollGrade > currentGrade) {
+        chance = chance * 1.1 + 0.001
+        graceBonus += 0.4
+        high = scrollGrade - currentGrade
+    }
+    if (offering !== undefined) {
+        const offeringGrade = g.items[offering].grade
+        if (offeringGrade === undefined) throw new Error(`${offering} is not a valid offering`)
+        const chanceFromGrace = 0.027 * (grace * 3 + 0.5)
+
+        if (offeringGrade > currentGrade + 1) {
+            chance = chance * 1.64 + chanceFromGrace * 2
             high = 1
-            increase = 3
-        } else if (offering_def.grade > grade) {
-            probability = probability * 1.48 + grace
+            graceBonus += 3
+        } else if (offeringGrade > currentGrade) {
+            chance = chance * 1.48 + chanceFromGrace
             high = 1
-            increase = 1
-        } else if (offering_def.grade == grade) {
-            probability = probability * 1.36 + Math.min(30 * 0.027, grace)
-        } else if (offering_def.grade == grade - 1) {
-            probability = probability * 1.15 + Math.min(25 * 0.019, grace) / Math.max(item.level - 2, 1)
-            increase = 0.2
+            graceBonus += 1
+        } else if (offeringGrade == currentGrade) {
+            chance = chance * 1.36 + Math.min(30 * 0.027, chanceFromGrace)
+            graceBonus += 0.5
+        } else if (offeringGrade == currentGrade - 1) {
+            chance = chance * 1.15 + Math.min(25 * 0.019, chanceFromGrace) / Math.max(nextLevel - 3, 1)
+            graceBonus += 0.2
         } else {
-            probability = probability * 1.08 + Math.min(15 * 0.015, grace) / Math.max(item.level - 1, 1)
-            increase = 0.1
+            chance = chance * 1.08 + Math.min(15 * 0.015, chanceFromGrace) / Math.max(nextLevel - 2, 1)
+            graceBonus += 0.1
         }
 
-        new_grace = item.grace * 3
-        grace_bonus += increase
+        newGrace = grace * 3
     } else {
-        grace = 0.007 * item.grace
-        probability = probability + Math.min(25 * 0.007, grace) / Math.max(item.level - 1, 1)
-        new_grace = item.grace
+        const chanceFromGrace = 0.007 * grace
+        chance += Math.min(25 * 0.007, chanceFromGrace) / Math.max(nextLevel - 2, 1)
     }
-    new_grace = new_grace / 6.4 + grace_bonus
-    probability = Math.min(
-        probability,
-        Math.min(oprobability * (3 + ((high && high * 0.6) || 0)), oprobability + 0.2 + ((high && high * 0.05) || 0)),
+    newGrace = newGrace / 6.4 + graceBonus
+    chance = Math.min(
+        1,
+        chance,
+        baseCompoundChance * (3 + ((high && high * 0.6) || 0)),
+        baseCompoundChance + 0.2 + ((high && high * 0.05) || 0),
     )
-    return { chance: Math.min(probability, 1), new_grace }
+    return { chance, newGrace: Math.round(newGrace * 10) / 10 }
 }

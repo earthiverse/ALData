@@ -22,7 +22,7 @@ Notes:
 In Adventure.land, you can use the following code to send mail and set or update your auth key:
 
 ```js
-send_mail("earthiverse", "aldata_auth", "put key here");
+send_mail("earthiverse", "aldata_auth", "put key here")
 ```
 
 ---
@@ -61,18 +61,18 @@ Set the request body to JSON text representing your character's achievement info
 Example code:
 
 ```js
-const ALDATA_KEY = "thisisnotmyrealkey";
+const ALDATA_KEY = "thisisnotmyrealkey"
 parent.socket.once("tracker", (data) => {
-  const url = `https://aldata.earthiverse.ca/achievements/${character.id}/${ALDATA_KEY}`;
-  const settings = {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ max: data.max, monsters: data.monsters }),
-  };
-  // if response.status == 200, it was successfully updated
-  fetch(url, settings).then((response) => show_json(response.status));
-});
-parent.socket.emit("tracker");
+    const url = `https://aldata.earthiverse.ca/achievements/${character.id}/${ALDATA_KEY}`
+    const settings = {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ max: data.max, monsters: data.monsters }),
+    }
+    // if response.status == 200, it was successfully updated
+    fetch(url, settings).then((response) => show_json(response.status))
+})
+parent.socket.emit("tracker")
 ```
 
 ---
@@ -106,15 +106,15 @@ Set the request body to JSON text representing your character's banking informat
 Example code:
 
 ```js
-const ALDATA_KEY = "thisisnotmyrealkey";
-const url = `https://aldata.earthiverse.ca/bank/${character.owner}/${ALDATA_KEY}`;
+const ALDATA_KEY = "thisisnotmyrealkey"
+const url = `https://aldata.earthiverse.ca/bank/${character.owner}/${ALDATA_KEY}`
 const settings = {
-  method: "PUT",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(character.bank),
-};
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(character.bank),
+}
 // if response.status == 200, it was successfully updated
-fetch(url, settings).then((response) => show_json(response.status));
+fetch(url, settings).then((response) => show_json(response.status))
 ```
 
 ---
@@ -137,26 +137,26 @@ Set the request body to JSON text representing the information you want to updat
 Example code:
 
 ```js
-const ALDATA_KEY = "thisisnotmyrealkey";
-const url = `https://aldata.earthiverse.ca/character/${character.id}/${ALDATA_KEY}`;
+const ALDATA_KEY = "thisisnotmyrealkey"
+const url = `https://aldata.earthiverse.ca/character/${character.id}/${ALDATA_KEY}`
 const update = {
-  method: "PUT",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    in: character.in,
-    items: character.items,
-    party: character.party,
-    rip: character.rip,
-    serverIdentifier: parent.server_identifier,
-    serverRegion: parent.server_region,
-    slots: character.slots,
-    s: character.s,
-    x: character.x,
-    y: character.y,
-  }),
-};
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        in: character.in,
+        items: character.items,
+        party: character.party,
+        rip: character.rip,
+        serverIdentifier: parent.server_identifier,
+        serverRegion: parent.server_region,
+        slots: character.slots,
+        s: character.s,
+        x: character.x,
+        y: character.y,
+    }),
+}
 // if response.status == 200, it was successfully updated
-fetch(url, update).then((response) => show_json(response.status));
+fetch(url, update).then((response) => show_json(response.status))
 ```
 
 ---
@@ -217,24 +217,24 @@ This code will populate a `parent.S2` variable with some data retrieved from the
 
 ```javascript
 async function checkServersForMonsters(monsters) {
-  // Safety Checks
-  if (!Array.isArray(monsters)) return;
-  if (monsters.length == 0) return;
+    // Safety Checks
+    if (!Array.isArray(monsters)) return
+    if (monsters.length == 0) return
 
-  // Query API
-  const url = "https://aldata.earthiverse.ca/monsters/" + monsters.join(",");
+    // Query API
+    const url = "https://aldata.earthiverse.ca/monsters/" + monsters.join(",")
 
-  const response = await fetch(url);
-  if (response.status == 200) {
-    const data = await response.json();
-    parent.S2 = data;
-    return data;
-  }
+    const response = await fetch(url)
+    if (response.status == 200) {
+        const data = await response.json()
+        parent.S2 = data
+        return data
+    }
 }
 
 // Check now, and every 30s
-checkServersForMonsters(["franky"]);
+checkServersForMonsters(["franky"])
 setInterval(() => {
-  checkServersForMonsters(["franky"]);
-}, 30000);
+    checkServersForMonsters(["franky"])
+}, 30000)
 ```

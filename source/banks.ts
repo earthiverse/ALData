@@ -5,7 +5,7 @@ const PRIVATE_OWNERS: string[] = []
 
 export async function getBank(owner: string): Promise<IBank> {
     if (PRIVATE_OWNERS.includes(owner)) return // Private bank
-    const filter: FilterQuery<IBankDocument> = { owner: owner }
+    const filter: FilterQuery<IBank> = { owner: owner }
 
     const bank = await AL.BankModel.findOne(filter, { owner: false }).lean().exec()
     return bank

@@ -4,7 +4,7 @@ import { FilterQuery, UpdateQuery } from "mongoose"
 const PRIVATE_CHARACTERS: string[] = []
 
 export async function getCharacters(ids: string[]) {
-    ids = ids.filter(x => !PRIVATE_CHARACTERS.includes(x))
+    ids = ids.filter((x) => !PRIVATE_CHARACTERS.includes(x))
     if (ids.length == 0) return []
 
     const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids }, serverIdentifier: { $ne: "PVP" } }
@@ -17,8 +17,10 @@ export async function getCharacters(ids: string[]) {
         serverIdentifier: 1,
         serverRegion: 1,
         x: 1,
-        y: 1
-    }).lean().exec()) {
+        y: 1,
+    })
+        .lean()
+        .exec()) {
         characters.push({
             id: character.name,
             lastSeen: new Date(character.lastSeen).toISOString(),
@@ -26,7 +28,7 @@ export async function getCharacters(ids: string[]) {
             serverIdentifier: character.serverIdentifier,
             serverRegion: character.serverRegion,
             x: character.x,
-            y: character.y
+            y: character.y,
         })
     }
     return characters
@@ -40,20 +42,22 @@ export async function getCharactersForOwner(ownerId: string) {
         items: 1,
         lastSeen: 1,
         name: 1,
-        slots: 1
-    }).lean().exec()) {
+        slots: 1,
+    })
+        .lean()
+        .exec()) {
         characters.push({
             id: character.name,
             items: character.items,
             lastSeen: new Date(character.lastSeen).toISOString(),
-            slots: character.slots
+            slots: character.slots,
         })
     }
     return characters
 }
 
 export async function getOwners(ids: string[]) {
-    ids = ids.filter(x => !PRIVATE_CHARACTERS.includes(x))
+    ids = ids.filter((x) => !PRIVATE_CHARACTERS.includes(x))
     if (ids.length == 0) return []
 
     const filter: FilterQuery<IPlayerDocument> = { name: { $in: ids } }
@@ -61,19 +65,24 @@ export async function getOwners(ids: string[]) {
     const characters = []
     for (const character of await AL.PlayerModel.find(filter, {
         name: 1,
-        owner: 1
-    }).lean().exec()) {
+        owner: 1,
+    })
+        .lean()
+        .exec()) {
         characters.push({
             id: character.name,
-            owner: character.owner
+            owner: character.owner,
         })
     }
     return characters
 }
 
-export async function updateCharacter(name: string, data: Partial<CharacterData> & { serverIdentifier?: ServerIdentifier, serverRegion?: ServerRegion }): Promise<void> {
+export async function updateCharacter(
+    name: string,
+    data: Partial<CharacterData> & { serverIdentifier?: ServerIdentifier; serverRegion?: ServerRegion },
+): Promise<void> {
     const update: UpdateQuery<IPlayerDocument> = {
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
     }
 
     if (data.in) update.in = data.in
