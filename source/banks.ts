@@ -1,9 +1,9 @@
-import AL, { BankInfo, IBankDocument } from "alclient"
+import AL, { BankInfo, IBank, IBankDocument } from "alclient"
 import { FilterQuery, UpdateQuery } from "mongoose"
 
 const PRIVATE_OWNERS: string[] = []
 
-export async function getBank(owner: string): Promise<IBankDocument> {
+export async function getBank(owner: string): Promise<IBank> {
     if (PRIVATE_OWNERS.includes(owner)) return // Private bank
     const filter: FilterQuery<IBankDocument> = { owner: owner }
 
@@ -20,7 +20,7 @@ export async function updateBank(owner: string, bank: BankInfo): Promise<void> {
     const update: UpdateQuery<IBankDocument> = {
         lastUpdated: Date.now(),
         owner: owner,
-        ...bank
+        ...bank,
     }
 
     await AL.BankModel.updateOne({ owner: owner }, update, { upsert: true })

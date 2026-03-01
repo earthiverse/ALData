@@ -1,4 +1,4 @@
-import AL, { IAchievementDocument, TrackerData } from "alclient"
+import AL, { IAchievement, TrackerData } from "alclient"
 import { MonsterName } from "alclient"
 
 /**
@@ -11,36 +11,36 @@ export type MonsterAchievementProgress = {
 
 const PRIVATE_ACHIEVEMENTS: string[] = []
 
-export async function getAchievements(ids: string[]): Promise<IAchievementDocument[]> {
-    ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
+export async function getAchievements(ids: string[]): Promise<IAchievement[]> {
+    ids = ids.filter((x) => !PRIVATE_ACHIEVEMENTS.includes(x))
     if (ids.length == 0) return []
 
     return await AL.AchievementModel.aggregate([
         {
             $match: {
-                name: { $in: ids }
-            }
+                name: { $in: ids },
+            },
         },
         {
             $sort: {
-                date: 1
-            }
+                date: 1,
+            },
         },
         {
             $group: {
                 _id: {
-                    name: "$name"
+                    name: "$name",
                 },
                 date: {
-                    $last: "$date"
+                    $last: "$date",
                 },
                 max: {
-                    $last: "$max"
+                    $last: "$max",
                 },
                 monsters: {
-                    $last: "$monsters"
-                }
-            }
+                    $last: "$monsters",
+                },
+            },
         },
         {
             $project: {
@@ -48,35 +48,40 @@ export async function getAchievements(ids: string[]): Promise<IAchievementDocume
                 date: 1,
                 max: 1,
                 monsters: 1,
-                name: "$_id.name"
-            }
-        }
+                name: "$_id.name",
+            },
+        },
     ]).exec()
 }
 
-export async function getAchievementsForMonster(ids: string[], monster: MonsterName, fromDate = 0, toDate = Date.now()): Promise<MonsterAchievementProgress> {
-    ids = ids.filter(x => !PRIVATE_ACHIEVEMENTS.includes(x))
+export async function getAchievementsForMonster(
+    ids: string[],
+    monster: MonsterName,
+    fromDate = 0,
+    toDate = Date.now(),
+): Promise<MonsterAchievementProgress> {
+    ids = ids.filter((x) => !PRIVATE_ACHIEVEMENTS.includes(x))
 
     const progress = await AL.AchievementModel.aggregate([
         {
             $match: {
                 date: { $gt: fromDate, $lt: toDate },
-                name: { $in: ids }
-            }
+                name: { $in: ids },
+            },
         },
         {
             $sort: {
-                date: -1
-            }
+                date: -1,
+            },
         },
         {
             $project: {
                 _id: 0,
-                "count": `$monsters.${monster}`,
-                "date": 1,
-                "name": 1
-            }
-        }
+                count: `$monsters.${monster}`,
+                date: 1,
+                name: 1,
+            },
+        },
     ]).exec()
     return progress
 }
@@ -92,6 +97,6 @@ export async function updateAchievements(name: string, tracker: TrackerData): Pr
         max: tracker.max,
         monsters: tracker.monsters,
         name: name,
-        ...tracker
+        ...tracker,
     })
 }
