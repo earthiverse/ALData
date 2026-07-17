@@ -119,6 +119,58 @@ fetch(url, settings).then((response) => show_json(response.status));
 
 ---
 
+### GET /trades
+
+Retrieves WTS/WTB trade listings for all public owners.
+
+Examples:
+
+- All trades: `https://aldata.earthiverse.ca/trades`
+
+---
+
+### GET /trades/:owner
+
+Retrieves WTS/WTB trade listings for the given owner.
+
+Examples:
+
+- earthiverse's trades: `https://aldata.earthiverse.ca/trades/5622711463182336`
+
+---
+
+### PUT /trades/:owner/:key
+
+Updates WTS/WTB trade listings for the given owner.
+Set the request body to JSON text with a `listings` array (a raw array is also accepted).
+
+Example code:
+
+```js
+const ALDATA_KEY = "thisisnotmyrealkey";
+const url = `https://aldata.earthiverse.ca/trades/${character.owner}/${ALDATA_KEY}`;
+const settings = {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    listings: [
+      {
+        name: "firestaff",
+        level: 9,
+        wts: { price: 50_000_000, priceNegotiable: true },
+        wtb: {
+          trades: [{ item: { name: "cryptkey" }, give: 1, receive: 1 }],
+        },
+      },
+    ],
+  }),
+};
+// if response.status == 200, it was successfully updated
+fetch(url, settings).then((response) => show_json(response.status));
+```
+
+---
+
 ### GET /character/:id
 
 Returns data about a single character.

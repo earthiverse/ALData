@@ -10,6 +10,7 @@ import { getAchievements, getAchievementsForMonster, updateAchievements } from "
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getCharactersForOwner, getOwners, updateCharacter } from "./characters.js"
+import { getAllTrades, getTrades, updateTrades, validateListings } from "./trades.js"
 import { getMerchants } from "./merchants.js"
 import {
     getHalloweenMonsterPriority,
@@ -261,6 +262,57 @@ app.put("/bank/:owner/:key", async (request, response) => {
         response.status(200).send()
     } catch (e) {
         response.status(500).send()
+        return
+    }
+})
+
+// Setup trade listing retrieval & updating
+app.get("/trades", async (_request, response) => {
+    try {
+        const trades = await getAllTrades()
+        response.status(200).send(trades)
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
+        return
+    }
+})
+app.get("/trades/:owner", async (request, response) => {
+    const owner = request.params.owner
+
+    try {
+        const trades = await getTrades(owner)
+        response.status(200).send(trades)
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
+        return
+    }
+})
+app.put("/trades/:owner/:key", async (request, response) => {
+    const owner = request.params.owner
+    const key = request.params.key
+
+    if (!(await checkAuthByOwner(owner, key))) {
+        // Failed authentication
+        response.status(401).send()
+        return
+    }
+
+    const body = request.body
+    const listings = Array.isArray(body) ? body : body?.listings
+    const validationError = validateListings(listings)
+    if (validationError) {
+        response.status(400).send(validationError)
+        return
+    }
+
+    try {
+        await updateTrades(owner, listings)
+        response.status(200).send()
+    } catch (e) {
+        response.status(500).send()
+        console.error(e)
         return
     }
 })
