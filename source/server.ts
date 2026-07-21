@@ -10,7 +10,16 @@ import { getAchievements, getAchievementsForMonster, updateAchievements } from "
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getCharactersForOwner, getOwners, updateCharacter } from "./characters.js"
-import { getAllTrades, getTrades, updateTrades, validateDisplayName, validateListings } from "./trades.js"
+import {
+    getAllTrades,
+    getTrades,
+    updateTrades,
+    validateDiscordId,
+    validateDiscordName,
+    validateDisplayName,
+    validateListings,
+    type TradesOwnerMeta,
+} from "./trades.js"
 import { getMerchants } from "./merchants.js"
 import {
     getHalloweenMonsterPriority,
@@ -307,22 +316,43 @@ app.put("/trades/:owner/:key", async (request, response) => {
         return
     }
 
-    let displayName: string | null | undefined = undefined
-    if (!Array.isArray(body) && Object.prototype.hasOwnProperty.call(body ?? {}, "displayName")) {
-        if (body.displayName === null) {
-            displayName = null
-        } else {
-            const displayNameError = validateDisplayName(body.displayName)
-            if (displayNameError) {
-                response.status(400).send(displayNameError)
-                return
+    const meta: TradesOwnerMeta = {}
+    if (!Array.isArray(body)) {
+        const parseOptionalString = (
+            field: keyof TradesOwnerMeta,
+            validate: (value: unknown) => string | null,
+        ): string | undefined => {
+            if (!Object.prototype.hasOwnProperty.call(body ?? {}, field)) return undefined
+            const value = body[field]
+            if (value === null) {
+                meta[field] = null
+                return undefined
             }
-            displayName = body.displayName as string
+            const error = validate(value)
+            if (error) return error
+            meta[field] = value as string
+            return undefined
+        }
+
+        const displayNameError = parseOptionalString("displayName", validateDisplayName)
+        if (displayNameError) {
+            response.status(400).send(displayNameError)
+            return
+        }
+        const discordNameError = parseOptionalString("discordName", validateDiscordName)
+        if (discordNameError) {
+            response.status(400).send(discordNameError)
+            return
+        }
+        const discordIdError = parseOptionalString("discordId", validateDiscordId)
+        if (discordIdError) {
+            response.status(400).send(discordIdError)
+            return
         }
     }
 
     try {
-        await updateTrades(owner, listings, displayName)
+        await updateTrades(owner, listings, meta)
         response.status(200).send()
     } catch (e) {
         response.status(500).send()

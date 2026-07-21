@@ -19,6 +19,17 @@ export type OwnerTrades = {
     listings: TradeListing[]
     /** Preferred public name for all listings (overrides derived character prefix). */
     displayName?: string
+    /** Discord username / display name (plain text — never used as a ping by bots). */
+    discordName?: string
+    /** Discord user snowflake for client copy-paste mentions (`<@id>`). */
+    discordId?: string
+}
+
+/** Optional owner-level fields accepted by PUT /trades (null clears). */
+export type TradesOwnerMeta = {
+    displayName?: string | null
+    discordName?: string | null
+    discordId?: string | null
 }
 
 type OwnerTradesDoc = OwnerTrades & { _id?: unknown }
@@ -74,6 +85,8 @@ const OwnerTradesSchema = new Schema({
         select: false,
         type: Number,
     },
+    discordId: { required: false, type: String },
+    discordName: { required: false, type: String },
     displayName: { required: false, type: String },
     lastUpdated: { required: false, type: Number },
     listings: { default: [], required: true, type: [TradeListingSchema] },
@@ -144,16 +157,50 @@ function validateTradeSide(side: unknown, path: string): string | null {
 }
 
 /**
+ * Light validation for a non-empty trimmed string field.
+ * @returns Error message, or `null` if valid / omitted
+ */
+function validateOptionalName(value: unknown, field: string, maxLength: number): string | null {
+    if (value === undefined || value === null) return null
+    if (typeof value !== "string") return `${field} must be a string`
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return `${field} must not be empty`
+    if (trimmed.length > maxLength) return `${field} must be at most ${maxLength} characters`
+    return null
+}
+
+/**
  * Light validation for PUT /trades `displayName`.
  * @returns Error message, or `null` if valid
  */
 export function validateDisplayName(displayName: unknown): string | null {
-    if (displayName === undefined || displayName === null) return null
-    if (typeof displayName !== "string") return "displayName must be a string"
-    const trimmed = displayName.trim()
-    if (trimmed.length === 0) return "displayName must not be empty"
-    if (trimmed.length > 64) return "displayName must be at most 64 characters"
+    return validateOptionalName(displayName, "displayName", 64)
+}
+
+/**
+ * Light validation for PUT /trades `discordName`.
+ * @returns Error message, or `null` if valid
+ */
+export function validateDiscordName(discordName: unknown): string | null {
+    return validateOptionalName(discordName, "discordName", 64)
+}
+
+/**
+ * Light validation for PUT /trades `discordId` (Discord snowflake).
+ * @returns Error message, or `null` if valid
+ */
+export function validateDiscordId(discordId: unknown): string | null {
+    if (discordId === undefined || discordId === null) return null
+    if (typeof discordId !== "string") return "discordId must be a string"
+    const trimmed = discordId.trim()
+    if (!/^\d{17,20}$/.test(trimmed)) return "discordId must be a Discord snowflake (17-20 digits)"
     return null
+}
+
+function trimmedOptionalString(value: unknown): string | undefined {
+    if (typeof value !== "string") return undefined
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
 }
 
 /**
@@ -188,12 +235,31 @@ export function validateListings(listings: unknown): string | null {
     return null
 }
 
+function publicOwnerFields(doc: OwnerTradesDoc, characters: string[]) {
+    const displayName = trimmedOptionalString(doc.displayName)
+    const discordName = trimmedOptionalString(doc.discordName)
+    const discordId = trimmedOptionalString(doc.discordId)
+    const label = displayName || ownerLabelFromCharacters(characters)
+
+    return {
+        listings: (doc.listings ?? []) as TradeListing[],
+        lastUpdated: doc.lastUpdated as number | undefined,
+        characters,
+        ...(displayName ? { displayName } : {}),
+        ...(discordName ? { discordName } : {}),
+        ...(discordId ? { discordId } : {}),
+        ...(label ? { label } : {}),
+    }
+}
+
 export async function getTrades(owner: string): Promise<{
     listings: TradeListing[]
     lastUpdated?: number
     characters?: string[]
     label?: string
     displayName?: string
+    discordName?: string
+    discordId?: string
 }> {
     if (PRIVATE_OWNERS.includes(owner)) return { listings: [] }
 
@@ -202,17 +268,7 @@ export async function getTrades(owner: string): Promise<{
     if (!doc) return { listings: [] }
 
     const characters = await charactersForOwners([owner]).then((m) => m.get(owner) ?? [])
-    const displayName =
-        typeof doc.displayName === "string" && doc.displayName.trim() ? doc.displayName.trim() : undefined
-    const label = displayName || ownerLabelFromCharacters(characters)
-
-    return {
-        listings: (doc.listings ?? []) as TradeListing[],
-        lastUpdated: doc.lastUpdated as number | undefined,
-        characters,
-        ...(displayName ? { displayName } : {}),
-        ...(label ? { label } : {}),
-    }
+    return publicOwnerFields(doc as OwnerTradesDoc, characters)
 }
 
 export async function getAllTrades(): Promise<
@@ -223,6 +279,8 @@ export async function getAllTrades(): Promise<
         characters?: string[]
         label?: string
         displayName?: string
+        discordName?: string
+        discordId?: string
     }[]
 > {
     const filter: FilterQuery<OwnerTradesDoc> = {}
@@ -244,22 +302,15 @@ export async function getAllTrades(): Promise<
         characters?: string[]
         label?: string
         displayName?: string
+        discordName?: string
+        discordId?: string
     }[] = []
     for (const doc of docs) {
         const owner = doc.owner as string
         const characters = charactersByOwner.get(owner) ?? []
-        const displayName =
-            typeof doc.displayName === "string" && doc.displayName.trim()
-                ? doc.displayName.trim()
-                : undefined
-        const label = displayName || ownerLabelFromCharacters(characters)
         results.push({
             owner,
-            listings: (doc.listings ?? []) as TradeListing[],
-            lastUpdated: doc.lastUpdated as number | undefined,
-            characters,
-            ...(displayName ? { displayName } : {}),
-            ...(label ? { label } : {}),
+            ...publicOwnerFields(doc as OwnerTradesDoc, characters),
         })
     }
     return results
@@ -309,30 +360,45 @@ async function charactersForOwners(owners: string[]): Promise<Map<string, string
     return map
 }
 
+function applyOptionalMetaField(
+    setFields: Record<string, unknown>,
+    unsetFields: Record<string, 1>,
+    key: keyof TradesOwnerMeta,
+    value: string | null | undefined,
+): void {
+    if (value === undefined) return
+    if (value === null) {
+        unsetFields[key] = 1
+        return
+    }
+    setFields[key] = value.trim()
+}
+
 /**
  * IMPORTANT: Check auth key before calling this function!
  * @param owner Owner of the trade listings
  * @param listings Trade listings to store
- * @param displayName Optional preferred display name for all listings
+ * @param meta Optional owner-level fields (`null` clears a field)
  */
 export async function updateTrades(
     owner: string,
     listings: TradeListing[],
-    displayName?: string | null,
+    meta: TradesOwnerMeta = {},
 ): Promise<void> {
     const setFields: Record<string, unknown> = {
         lastUpdated: Date.now(),
         listings: listings,
         owner: owner,
     }
+    const unsetFields: Record<string, 1> = {}
 
-    if (typeof displayName === "string") {
-        setFields.displayName = displayName.trim()
-    }
+    applyOptionalMetaField(setFields, unsetFields, "displayName", meta.displayName)
+    applyOptionalMetaField(setFields, unsetFields, "discordName", meta.discordName)
+    applyOptionalMetaField(setFields, unsetFields, "discordId", meta.discordId)
 
     const update: UpdateQuery<OwnerTradesDoc> =
-        displayName === null
-            ? { $set: setFields, $unset: { displayName: 1 } }
+        Object.keys(unsetFields).length > 0
+            ? { $set: setFields, $unset: unsetFields }
             : { $set: setFields }
 
     await TradeModel.updateOne({ owner: owner }, update, { upsert: true })

@@ -143,7 +143,11 @@ Examples:
 
 Updates WTS/WTB trade listings for the given owner.
 Set the request body to JSON with a `listings` array (a raw array is also accepted).
-Optional `displayName` sets a preferred public name for **all** of this owner's listings (shown in clients instead of the raw owner id). Pass `displayName: null` to clear it.
+Optional owner-level fields (apply to **all** listings; pass `null` to clear):
+
+- `displayName` — preferred public name (shown instead of the raw owner id)
+- `discordName` — Discord username / display name (plain text for clients; bots should not ping)
+- `discordId` — Discord user snowflake so clients can copy a pingable `<@id>` mention
 
 Example code:
 
@@ -155,6 +159,8 @@ const settings = {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     displayName: "earthiverse",
+    discordName: "earthiverse",
+    discordId: "123456789012345678",
     listings: [
       {
         name: "firestaff",
