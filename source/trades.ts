@@ -168,21 +168,31 @@ export function validateListings(listings: unknown): string | null {
     return null
 }
 
-export async function getTrades(owner: string): Promise<{ listings: TradeListing[]; lastUpdated?: number }> {
+export async function getTrades(owner: string): Promise<{
+    listings: TradeListing[]
+    lastUpdated?: number
+    characters?: string[]
+    label?: string
+}> {
     if (PRIVATE_OWNERS.includes(owner)) return { listings: [] }
 
     const filter: FilterQuery<OwnerTradesDoc> = { owner: owner }
     const doc = await TradeModel.findOne(filter, { owner: false, _id: false }).lean().exec()
     if (!doc) return { listings: [] }
 
+    const characters = await charactersForOwners([owner]).then((m) => m.get(owner) ?? [])
+    const label = ownerLabelFromCharacters(characters)
+
     return {
         listings: (doc.listings ?? []) as TradeListing[],
         lastUpdated: doc.lastUpdated as number | undefined,
+        characters,
+        ...(label ? { label } : {}),
     }
 }
 
 export async function getAllTrades(): Promise<
-    { owner: string; listings: TradeListing[]; lastUpdated?: number }[]
+    { owner: string; listings: TradeListing[]; lastUpdated?: number; characters?: string[]; label?: string }[]
 > {
     const filter: FilterQuery<OwnerTradesDoc> = {}
     if (PRIVATE_OWNERS.length > 0) {
@@ -190,15 +200,76 @@ export async function getAllTrades(): Promise<
     }
 
     const docs = await TradeModel.find(filter, { _id: false }).lean().exec()
-    const results: { owner: string; listings: TradeListing[]; lastUpdated?: number }[] = []
+    const ownerIds: string[] = []
     for (const doc of docs) {
+        if (doc.owner) ownerIds.push(doc.owner as string)
+    }
+    const charactersByOwner = await charactersForOwners(ownerIds)
+
+    const results: {
+        owner: string
+        listings: TradeListing[]
+        lastUpdated?: number
+        characters?: string[]
+        label?: string
+    }[] = []
+    for (const doc of docs) {
+        const owner = doc.owner as string
+        const characters = charactersByOwner.get(owner) ?? []
+        const label = ownerLabelFromCharacters(characters)
         results.push({
-            owner: doc.owner as string,
+            owner,
             listings: (doc.listings ?? []) as TradeListing[],
             lastUpdated: doc.lastUpdated as number | undefined,
+            characters,
+            ...(label ? { label } : {}),
         })
     }
     return results
+}
+
+/**
+ * Derive a short display name from character names (e.g. earthMer, earthWar → "earth").
+ */
+export function ownerLabelFromCharacters(characters: string[]): string | undefined {
+    const names: string[] = []
+    for (const name of characters) {
+        if (name) names.push(name)
+    }
+    if (names.length === 0) return undefined
+
+    let prefix = names[0]
+    for (let i = 1; i < names.length; i++) {
+        const name = names[i]
+        while (prefix.length > 0 && !name.startsWith(prefix)) {
+            prefix = prefix.slice(0, -1)
+        }
+    }
+
+    if (prefix.length >= 2) return prefix
+    return names[0]
+}
+
+async function charactersForOwners(owners: string[]): Promise<Map<string, string[]>> {
+    const map = new Map<string, string[]>()
+    if (owners.length === 0) return map
+
+    const players = await AL.PlayerModel.find(
+        { owner: { $in: owners } },
+        { name: true, owner: true, _id: false },
+    )
+        .lean()
+        .exec()
+
+    for (const player of players) {
+        const owner = player.owner as string | undefined
+        const name = player.name as string | undefined
+        if (!owner || !name) continue
+        const list = map.get(owner)
+        if (list) list.push(name)
+        else map.set(owner, [name])
+    }
+    return map
 }
 
 /**
