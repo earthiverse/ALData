@@ -13,7 +13,13 @@ export type TradeSide = {
     trades?: TradeOffer[]
 }
 export type TradeListing = ItemRef & { note?: string; wts?: TradeSide; wtb?: TradeSide }
-export type OwnerTrades = { owner: string; lastUpdated: number; listings: TradeListing[] }
+export type OwnerTrades = {
+    owner: string
+    lastUpdated: number
+    listings: TradeListing[]
+    /** Preferred public name for all listings (overrides derived character prefix). */
+    displayName?: string
+}
 
 type OwnerTradesDoc = OwnerTrades & { _id?: unknown }
 
@@ -68,6 +74,7 @@ const OwnerTradesSchema = new Schema({
         select: false,
         type: Number,
     },
+    displayName: { required: false, type: String },
     lastUpdated: { required: false, type: Number },
     listings: { default: [], required: true, type: [TradeListingSchema] },
     owner: { required: true, type: String },
@@ -137,6 +144,19 @@ function validateTradeSide(side: unknown, path: string): string | null {
 }
 
 /**
+ * Light validation for PUT /trades `displayName`.
+ * @returns Error message, or `null` if valid
+ */
+export function validateDisplayName(displayName: unknown): string | null {
+    if (displayName === undefined || displayName === null) return null
+    if (typeof displayName !== "string") return "displayName must be a string"
+    const trimmed = displayName.trim()
+    if (trimmed.length === 0) return "displayName must not be empty"
+    if (trimmed.length > 64) return "displayName must be at most 64 characters"
+    return null
+}
+
+/**
  * Light validation for PUT /trades bodies.
  * @returns Error message, or `null` if valid
  */
@@ -173,6 +193,7 @@ export async function getTrades(owner: string): Promise<{
     lastUpdated?: number
     characters?: string[]
     label?: string
+    displayName?: string
 }> {
     if (PRIVATE_OWNERS.includes(owner)) return { listings: [] }
 
@@ -181,18 +202,28 @@ export async function getTrades(owner: string): Promise<{
     if (!doc) return { listings: [] }
 
     const characters = await charactersForOwners([owner]).then((m) => m.get(owner) ?? [])
-    const label = ownerLabelFromCharacters(characters)
+    const displayName =
+        typeof doc.displayName === "string" && doc.displayName.trim() ? doc.displayName.trim() : undefined
+    const label = displayName || ownerLabelFromCharacters(characters)
 
     return {
         listings: (doc.listings ?? []) as TradeListing[],
         lastUpdated: doc.lastUpdated as number | undefined,
         characters,
+        ...(displayName ? { displayName } : {}),
         ...(label ? { label } : {}),
     }
 }
 
 export async function getAllTrades(): Promise<
-    { owner: string; listings: TradeListing[]; lastUpdated?: number; characters?: string[]; label?: string }[]
+    {
+        owner: string
+        listings: TradeListing[]
+        lastUpdated?: number
+        characters?: string[]
+        label?: string
+        displayName?: string
+    }[]
 > {
     const filter: FilterQuery<OwnerTradesDoc> = {}
     if (PRIVATE_OWNERS.length > 0) {
@@ -212,16 +243,22 @@ export async function getAllTrades(): Promise<
         lastUpdated?: number
         characters?: string[]
         label?: string
+        displayName?: string
     }[] = []
     for (const doc of docs) {
         const owner = doc.owner as string
         const characters = charactersByOwner.get(owner) ?? []
-        const label = ownerLabelFromCharacters(characters)
+        const displayName =
+            typeof doc.displayName === "string" && doc.displayName.trim()
+                ? doc.displayName.trim()
+                : undefined
+        const label = displayName || ownerLabelFromCharacters(characters)
         results.push({
             owner,
             listings: (doc.listings ?? []) as TradeListing[],
             lastUpdated: doc.lastUpdated as number | undefined,
             characters,
+            ...(displayName ? { displayName } : {}),
             ...(label ? { label } : {}),
         })
     }
@@ -276,13 +313,27 @@ async function charactersForOwners(owners: string[]): Promise<Map<string, string
  * IMPORTANT: Check auth key before calling this function!
  * @param owner Owner of the trade listings
  * @param listings Trade listings to store
+ * @param displayName Optional preferred display name for all listings
  */
-export async function updateTrades(owner: string, listings: TradeListing[]): Promise<void> {
-    const update: UpdateQuery<OwnerTradesDoc> = {
+export async function updateTrades(
+    owner: string,
+    listings: TradeListing[],
+    displayName?: string | null,
+): Promise<void> {
+    const setFields: Record<string, unknown> = {
         lastUpdated: Date.now(),
         listings: listings,
         owner: owner,
     }
+
+    if (typeof displayName === "string") {
+        setFields.displayName = displayName.trim()
+    }
+
+    const update: UpdateQuery<OwnerTradesDoc> =
+        displayName === null
+            ? { $set: setFields, $unset: { displayName: 1 } }
+            : { $set: setFields }
 
     await TradeModel.updateOne({ owner: owner }, update, { upsert: true })
 }

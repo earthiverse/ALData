@@ -10,7 +10,7 @@ import { getAchievements, getAchievementsForMonster, updateAchievements } from "
 import { getAuthStatus, checkAuthByOwner, checkAuthByName } from "./auths.js"
 import { getBank, updateBank } from "./banks.js"
 import { getCharacters, getCharactersForOwner, getOwners, updateCharacter } from "./characters.js"
-import { getAllTrades, getTrades, updateTrades, validateListings } from "./trades.js"
+import { getAllTrades, getTrades, updateTrades, validateDisplayName, validateListings } from "./trades.js"
 import { getMerchants } from "./merchants.js"
 import {
     getHalloweenMonsterPriority,
@@ -307,8 +307,22 @@ app.put("/trades/:owner/:key", async (request, response) => {
         return
     }
 
+    let displayName: string | null | undefined = undefined
+    if (!Array.isArray(body) && Object.prototype.hasOwnProperty.call(body ?? {}, "displayName")) {
+        if (body.displayName === null) {
+            displayName = null
+        } else {
+            const displayNameError = validateDisplayName(body.displayName)
+            if (displayNameError) {
+                response.status(400).send(displayNameError)
+                return
+            }
+            displayName = body.displayName as string
+        }
+    }
+
     try {
-        await updateTrades(owner, listings)
+        await updateTrades(owner, listings, displayName)
         response.status(200).send()
     } catch (e) {
         response.status(500).send()
