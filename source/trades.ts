@@ -1,5 +1,6 @@
 import AL from "alclient"
 import type { FilterQuery, UpdateQuery } from "mongoose"
+import { getCharacterNamesByOwners } from "./characters.js"
 
 const PRIVATE_OWNERS: string[] = []
 
@@ -32,7 +33,53 @@ export type TradesOwnerMeta = {
     discordId?: string | null
 }
 
+/** Public trade payload without owner id (GET /trades/:owner). */
+export type PublicTradesDto = {
+    listings: TradeListing[]
+    lastUpdated?: number
+    characters?: string[]
+    label?: string
+    displayName?: string
+    discordName?: string
+    discordId?: string
+}
+
+/** Public trade payload with owner id (GET /trades). */
+export type PublicOwnerTradesDto = PublicTradesDto & { owner: string }
+
+export type ParseTradePutBodyResult =
+    | { ok: true; listings: TradeListing[]; meta: TradesOwnerMeta }
+    | { ok: false; error: string }
+
 type OwnerTradesDoc = OwnerTrades & { _id?: unknown }
+
+type OwnerMetaFieldSpec = {
+    key: keyof TradesOwnerMeta
+    /** Validate a non-null value; returns error or trimmed string to store. */
+    normalize: (value: unknown) => { ok: true; value: string } | { ok: false; error: string }
+}
+
+const OWNER_META_FIELDS: OwnerMetaFieldSpec[] = [
+    {
+        key: "displayName",
+        normalize: (value) => normalizeOptionalName(value, "displayName", 64),
+    },
+    {
+        key: "discordName",
+        normalize: (value) => normalizeOptionalName(value, "discordName", 64),
+    },
+    {
+        key: "discordId",
+        normalize: (value) => {
+            if (typeof value !== "string") return { ok: false, error: "discordId must be a string" }
+            const trimmed = value.trim()
+            if (!/^\d{17,20}$/.test(trimmed)) {
+                return { ok: false, error: "discordId must be a Discord snowflake (17-20 digits)" }
+            }
+            return { ok: true, value: trimmed }
+        },
+    },
+]
 
 // Reuse alclient's mongoose connection/instance (same default connection as BankModel)
 const mongoose = AL.BankModel.base
@@ -100,101 +147,224 @@ function isNonNegativeNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value) && value >= 0
 }
 
-function validateNote(note: unknown, path: string): string | null {
-    if (note === undefined) return null
-    if (typeof note !== "string") return `${path} must be a string`
-    return null
+function normalizeOptionalName(
+    value: unknown,
+    field: string,
+    maxLength: number,
+): { ok: true; value: string } | { ok: false; error: string } {
+    if (typeof value !== "string") return { ok: false, error: `${field} must be a string` }
+    const trimmed = value.trim()
+    if (trimmed.length === 0) return { ok: false, error: `${field} must not be empty` }
+    if (trimmed.length > maxLength) return { ok: false, error: `${field} must be at most ${maxLength} characters` }
+    return { ok: true, value: trimmed }
 }
 
-function validateTradeOffers(trades: unknown, path: string): string | null {
-    if (trades === undefined) return null
-    if (!Array.isArray(trades)) return `${path} must be an array`
+function parseItemRef(
+    value: unknown,
+    path: string,
+): { ok: true; item: ItemRef } | { ok: false; error: string } {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return { ok: false, error: `${path} must be an object` }
+    }
+    const raw = value as Record<string, unknown>
+    if (typeof raw.name !== "string" || raw.name.length === 0) {
+        return { ok: false, error: `${path}.name must be a non-empty string` }
+    }
 
+    const item: ItemRef = { name: raw.name }
+    if (raw.level !== undefined) {
+        if (!isNonNegativeNumber(raw.level)) {
+            return { ok: false, error: `${path}.level must be a non-negative number` }
+        }
+        item.level = raw.level
+    }
+    if (raw.p !== undefined) {
+        if (typeof raw.p !== "string" || raw.p.length === 0) {
+            return { ok: false, error: `${path}.p must be a non-empty string` }
+        }
+        item.p = raw.p
+    }
+    return { ok: true, item }
+}
+
+function parseNote(
+    note: unknown,
+    path: string,
+): { ok: true; note?: string } | { ok: false; error: string } {
+    if (note === undefined) return { ok: true }
+    if (typeof note !== "string") return { ok: false, error: `${path} must be a string` }
+    return { ok: true, note }
+}
+
+function parseTradeOffers(
+    trades: unknown,
+    path: string,
+): { ok: true; trades?: TradeOffer[] } | { ok: false; error: string } {
+    if (trades === undefined) return { ok: true }
+    if (!Array.isArray(trades)) return { ok: false, error: `${path} must be an array` }
+
+    const parsed: TradeOffer[] = []
     for (let i = 0; i < trades.length; i++) {
         const offer = trades[i]
-        if (!offer || typeof offer !== "object") return `${path}[${i}] must be an object`
-        const tradeOffer = offer as TradeOffer
-        if (!tradeOffer.item || typeof tradeOffer.item !== "object") {
-            return `${path}[${i}].item must be an object`
+        if (!offer || typeof offer !== "object" || Array.isArray(offer)) {
+            return { ok: false, error: `${path}[${i}] must be an object` }
         }
-        if (typeof tradeOffer.item.name !== "string" || tradeOffer.item.name.length === 0) {
-            return `${path}[${i}].item.name must be a non-empty string`
+        const raw = offer as Record<string, unknown>
+        const itemResult = parseItemRef(raw.item, `${path}[${i}].item`)
+        if (itemResult.ok === false) return { ok: false, error: itemResult.error }
+        if (!isNonNegativeNumber(raw.give)) {
+            return { ok: false, error: `${path}[${i}].give must be a non-negative number` }
         }
-        if (!isNonNegativeNumber(tradeOffer.give)) return `${path}[${i}].give must be a non-negative number`
-        if (!isNonNegativeNumber(tradeOffer.receive)) {
-            return `${path}[${i}].receive must be a non-negative number`
+        if (!isNonNegativeNumber(raw.receive)) {
+            return { ok: false, error: `${path}[${i}].receive must be a non-negative number` }
         }
-        if (tradeOffer.negotiable !== undefined && typeof tradeOffer.negotiable !== "boolean") {
-            return `${path}[${i}].negotiable must be a boolean`
+        if (raw.negotiable !== undefined && typeof raw.negotiable !== "boolean") {
+            return { ok: false, error: `${path}[${i}].negotiable must be a boolean` }
         }
+
+        const tradeOffer: TradeOffer = {
+            item: itemResult.item,
+            give: raw.give,
+            receive: raw.receive,
+        }
+        if (typeof raw.negotiable === "boolean") tradeOffer.negotiable = raw.negotiable
+        parsed.push(tradeOffer)
     }
 
-    return null
+    return { ok: true, trades: parsed }
 }
 
-function validateTradeSide(side: unknown, path: string): string | null {
-    if (side === undefined) return null
-    if (!side || typeof side !== "object") return `${path} must be an object`
-
-    const tradeSide = side as TradeSide
-    if (tradeSide.price !== undefined && !isNonNegativeNumber(tradeSide.price)) {
-        return `${path}.price must be a non-negative number`
-    }
-    if (tradeSide.priceNegotiable !== undefined && typeof tradeSide.priceNegotiable !== "boolean") {
-        return `${path}.priceNegotiable must be a boolean`
-    }
-    if (tradeSide.quantity !== undefined && !isNonNegativeNumber(tradeSide.quantity)) {
-        return `${path}.quantity must be a non-negative number`
+function parseTradeSide(
+    side: unknown,
+    path: string,
+): { ok: true; side?: TradeSide } | { ok: false; error: string } {
+    if (side === undefined) return { ok: true }
+    if (!side || typeof side !== "object" || Array.isArray(side)) {
+        return { ok: false, error: `${path} must be an object` }
     }
 
-    const noteError = validateNote(tradeSide.note, `${path}.note`)
-    if (noteError) return noteError
+    const raw = side as Record<string, unknown>
+    const tradeSide: TradeSide = {}
 
-    const tradesError = validateTradeOffers(tradeSide.trades, `${path}.trades`)
-    if (tradesError) return tradesError
+    if (raw.price !== undefined) {
+        if (!isNonNegativeNumber(raw.price)) {
+            return { ok: false, error: `${path}.price must be a non-negative number` }
+        }
+        tradeSide.price = raw.price
+    }
+    if (raw.priceNegotiable !== undefined) {
+        if (typeof raw.priceNegotiable !== "boolean") {
+            return { ok: false, error: `${path}.priceNegotiable must be a boolean` }
+        }
+        tradeSide.priceNegotiable = raw.priceNegotiable
+    }
+    if (raw.quantity !== undefined) {
+        if (!isNonNegativeNumber(raw.quantity)) {
+            return { ok: false, error: `${path}.quantity must be a non-negative number` }
+        }
+        tradeSide.quantity = raw.quantity
+    }
 
-    return null
+    const noteResult = parseNote(raw.note, `${path}.note`)
+    if (noteResult.ok === false) return { ok: false, error: noteResult.error }
+    if (noteResult.note !== undefined) tradeSide.note = noteResult.note
+
+    const tradesResult = parseTradeOffers(raw.trades, `${path}.trades`)
+    if (tradesResult.ok === false) return { ok: false, error: tradesResult.error }
+    if (tradesResult.trades !== undefined) tradeSide.trades = tradesResult.trades
+
+    const hasContent =
+        tradeSide.price !== undefined ||
+        tradeSide.priceNegotiable !== undefined ||
+        tradeSide.note !== undefined ||
+        tradeSide.quantity !== undefined ||
+        (tradeSide.trades !== undefined && tradeSide.trades.length > 0)
+    if (!hasContent) return { ok: false, error: `${path} must not be empty` }
+
+    return { ok: true, side: tradeSide }
+}
+
+function parseListings(
+    listings: unknown,
+): { ok: true; listings: TradeListing[] } | { ok: false; error: string } {
+    if (!Array.isArray(listings)) return { ok: false, error: "listings must be an array" }
+
+    const parsed: TradeListing[] = []
+    for (let i = 0; i < listings.length; i++) {
+        const entry = listings[i]
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            return { ok: false, error: `listings[${i}] must be an object` }
+        }
+
+        const raw = entry as Record<string, unknown>
+        const itemResult = parseItemRef(raw, `listings[${i}]`)
+        if (itemResult.ok === false) return { ok: false, error: itemResult.error }
+
+        if (raw.wts === undefined && raw.wtb === undefined) {
+            return { ok: false, error: `listings[${i}] must include at least one of wts or wtb` }
+        }
+
+        const listing: TradeListing = { ...itemResult.item }
+
+        const noteResult = parseNote(raw.note, `listings[${i}].note`)
+        if (noteResult.ok === false) return { ok: false, error: noteResult.error }
+        if (noteResult.note !== undefined) listing.note = noteResult.note
+
+        const wtsResult = parseTradeSide(raw.wts, `listings[${i}].wts`)
+        if (wtsResult.ok === false) return { ok: false, error: wtsResult.error }
+        if (wtsResult.side !== undefined) listing.wts = wtsResult.side
+
+        const wtbResult = parseTradeSide(raw.wtb, `listings[${i}].wtb`)
+        if (wtbResult.ok === false) return { ok: false, error: wtbResult.error }
+        if (wtbResult.side !== undefined) listing.wtb = wtbResult.side
+
+        parsed.push(listing)
+    }
+
+    return { ok: true, listings: parsed }
+}
+
+function parseOwnerMeta(
+    body: Record<string, unknown>,
+): { ok: true; meta: TradesOwnerMeta } | { ok: false; error: string } {
+    const meta: TradesOwnerMeta = {}
+
+    for (const spec of OWNER_META_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(body, spec.key)) continue
+        const value = body[spec.key]
+        if (value === null) {
+            meta[spec.key] = null
+            continue
+        }
+        const normalized = spec.normalize(value)
+        if (normalized.ok === false) return { ok: false, error: normalized.error }
+        meta[spec.key] = normalized.value
+    }
+
+    return { ok: true, meta }
 }
 
 /**
- * Light validation for a non-empty trimmed string field.
- * @returns Error message, or `null` if valid / omitted
+ * Parse and validate PUT /trades bodies (array of listings, or `{ listings, ...meta }`).
  */
-function validateOptionalName(value: unknown, field: string, maxLength: number): string | null {
-    if (value === undefined || value === null) return null
-    if (typeof value !== "string") return `${field} must be a string`
-    const trimmed = value.trim()
-    if (trimmed.length === 0) return `${field} must not be empty`
-    if (trimmed.length > maxLength) return `${field} must be at most ${maxLength} characters`
-    return null
-}
+export function parseTradePutBody(body: unknown): ParseTradePutBodyResult {
+    const listingsRaw = Array.isArray(body)
+        ? body
+        : body && typeof body === "object"
+          ? (body as Record<string, unknown>).listings
+          : undefined
 
-/**
- * Light validation for PUT /trades `displayName`.
- * @returns Error message, or `null` if valid
- */
-export function validateDisplayName(displayName: unknown): string | null {
-    return validateOptionalName(displayName, "displayName", 64)
-}
+    const listingsResult = parseListings(listingsRaw)
+    if (listingsResult.ok === false) return { ok: false, error: listingsResult.error }
 
-/**
- * Light validation for PUT /trades `discordName`.
- * @returns Error message, or `null` if valid
- */
-export function validateDiscordName(discordName: unknown): string | null {
-    return validateOptionalName(discordName, "discordName", 64)
-}
+    let meta: TradesOwnerMeta = {}
+    if (!Array.isArray(body) && body && typeof body === "object") {
+        const metaResult = parseOwnerMeta(body as Record<string, unknown>)
+        if (metaResult.ok === false) return { ok: false, error: metaResult.error }
+        meta = metaResult.meta
+    }
 
-/**
- * Light validation for PUT /trades `discordId` (Discord snowflake).
- * @returns Error message, or `null` if valid
- */
-export function validateDiscordId(discordId: unknown): string | null {
-    if (discordId === undefined || discordId === null) return null
-    if (typeof discordId !== "string") return "discordId must be a string"
-    const trimmed = discordId.trim()
-    if (!/^\d{17,20}$/.test(trimmed)) return "discordId must be a Discord snowflake (17-20 digits)"
-    return null
+    return { ok: true, listings: listingsResult.listings, meta }
 }
 
 function trimmedOptionalString(value: unknown): string | undefined {
@@ -203,86 +373,43 @@ function trimmedOptionalString(value: unknown): string | undefined {
     return trimmed.length > 0 ? trimmed : undefined
 }
 
-/**
- * Light validation for PUT /trades bodies.
- * @returns Error message, or `null` if valid
- */
-export function validateListings(listings: unknown): string | null {
-    if (!Array.isArray(listings)) return "listings must be an array"
-
-    for (let i = 0; i < listings.length; i++) {
-        const entry = listings[i]
-        if (!entry || typeof entry !== "object") return `listings[${i}] must be an object`
-
-        const listing = entry as TradeListing
-        if (typeof listing.name !== "string" || listing.name.length === 0) {
-            return `listings[${i}].name must be a non-empty string`
-        }
-        if (!listing.wts && !listing.wtb) {
-            return `listings[${i}] must include at least one of wts or wtb`
-        }
-
-        const noteError = validateNote(listing.note, `listings[${i}].note`)
-        if (noteError) return noteError
-
-        const wtsError = validateTradeSide(listing.wts, `listings[${i}].wts`)
-        if (wtsError) return wtsError
-
-        const wtbError = validateTradeSide(listing.wtb, `listings[${i}].wtb`)
-        if (wtbError) return wtbError
-    }
-
-    return null
-}
-
-function publicOwnerFields(doc: OwnerTradesDoc, characters: string[]) {
+function toPublicTradesDto(doc: OwnerTradesDoc, characters: string[]): PublicTradesDto {
     const displayName = trimmedOptionalString(doc.displayName)
     const discordName = trimmedOptionalString(doc.discordName)
     const discordId = trimmedOptionalString(doc.discordId)
     const label = displayName || ownerLabelFromCharacters(characters)
 
-    return {
-        listings: (doc.listings ?? []) as TradeListing[],
-        lastUpdated: doc.lastUpdated as number | undefined,
+    const dto: PublicTradesDto = {
+        listings: Array.isArray(doc.listings) ? doc.listings : [],
         characters,
-        ...(displayName ? { displayName } : {}),
-        ...(discordName ? { discordName } : {}),
-        ...(discordId ? { discordId } : {}),
-        ...(label ? { label } : {}),
+    }
+    if (typeof doc.lastUpdated === "number") dto.lastUpdated = doc.lastUpdated
+    if (displayName) dto.displayName = displayName
+    if (discordName) dto.discordName = discordName
+    if (discordId) dto.discordId = discordId
+    if (label) dto.label = label
+    return dto
+}
+
+function toPublicOwnerTradesDto(doc: OwnerTradesDoc, characters: string[]): PublicOwnerTradesDto {
+    return {
+        owner: doc.owner,
+        ...toPublicTradesDto(doc, characters),
     }
 }
 
-export async function getTrades(owner: string): Promise<{
-    listings: TradeListing[]
-    lastUpdated?: number
-    characters?: string[]
-    label?: string
-    displayName?: string
-    discordName?: string
-    discordId?: string
-}> {
+export async function getTrades(owner: string): Promise<PublicTradesDto> {
     if (PRIVATE_OWNERS.includes(owner)) return { listings: [] }
 
     const filter: FilterQuery<OwnerTradesDoc> = { owner: owner }
     const doc = await TradeModel.findOne(filter, { owner: false, _id: false }).lean().exec()
     if (!doc) return { listings: [] }
 
-    const characters = await charactersForOwners([owner]).then((m) => m.get(owner) ?? [])
-    return publicOwnerFields(doc as OwnerTradesDoc, characters)
+    const characters = await getCharacterNamesByOwners([owner]).then((m) => m.get(owner) ?? [])
+    return toPublicTradesDto(doc as OwnerTradesDoc, characters)
 }
 
-export async function getAllTrades(): Promise<
-    {
-        owner: string
-        listings: TradeListing[]
-        lastUpdated?: number
-        characters?: string[]
-        label?: string
-        displayName?: string
-        discordName?: string
-        discordId?: string
-    }[]
-> {
+export async function getAllTrades(): Promise<PublicOwnerTradesDto[]> {
     const filter: FilterQuery<OwnerTradesDoc> = {}
     if (PRIVATE_OWNERS.length > 0) {
         filter.owner = { $nin: PRIVATE_OWNERS }
@@ -291,27 +418,15 @@ export async function getAllTrades(): Promise<
     const docs = await TradeModel.find(filter, { _id: false }).lean().exec()
     const ownerIds: string[] = []
     for (const doc of docs) {
-        if (doc.owner) ownerIds.push(doc.owner as string)
+        if (typeof doc.owner === "string") ownerIds.push(doc.owner)
     }
-    const charactersByOwner = await charactersForOwners(ownerIds)
+    const charactersByOwner = await getCharacterNamesByOwners(ownerIds)
 
-    const results: {
-        owner: string
-        listings: TradeListing[]
-        lastUpdated?: number
-        characters?: string[]
-        label?: string
-        displayName?: string
-        discordName?: string
-        discordId?: string
-    }[] = []
+    const results: PublicOwnerTradesDto[] = []
     for (const doc of docs) {
-        const owner = doc.owner as string
-        const characters = charactersByOwner.get(owner) ?? []
-        results.push({
-            owner,
-            ...publicOwnerFields(doc as OwnerTradesDoc, characters),
-        })
+        if (typeof doc.owner !== "string") continue
+        const characters = charactersByOwner.get(doc.owner) ?? []
+        results.push(toPublicOwnerTradesDto(doc as OwnerTradesDoc, characters))
     }
     return results
 }
@@ -338,42 +453,6 @@ export function ownerLabelFromCharacters(characters: string[]): string | undefin
     return names[0]
 }
 
-async function charactersForOwners(owners: string[]): Promise<Map<string, string[]>> {
-    const map = new Map<string, string[]>()
-    if (owners.length === 0) return map
-
-    const players = await AL.PlayerModel.find(
-        { owner: { $in: owners } },
-        { name: true, owner: true, _id: false },
-    )
-        .lean()
-        .exec()
-
-    for (const player of players) {
-        const owner = player.owner as string | undefined
-        const name = player.name as string | undefined
-        if (!owner || !name) continue
-        const list = map.get(owner)
-        if (list) list.push(name)
-        else map.set(owner, [name])
-    }
-    return map
-}
-
-function applyOptionalMetaField(
-    setFields: Record<string, unknown>,
-    unsetFields: Record<string, 1>,
-    key: keyof TradesOwnerMeta,
-    value: string | null | undefined,
-): void {
-    if (value === undefined) return
-    if (value === null) {
-        unsetFields[key] = 1
-        return
-    }
-    setFields[key] = value.trim()
-}
-
 /**
  * IMPORTANT: Check auth key before calling this function!
  * @param owner Owner of the trade listings
@@ -392,9 +471,15 @@ export async function updateTrades(
     }
     const unsetFields: Record<string, 1> = {}
 
-    applyOptionalMetaField(setFields, unsetFields, "displayName", meta.displayName)
-    applyOptionalMetaField(setFields, unsetFields, "discordName", meta.discordName)
-    applyOptionalMetaField(setFields, unsetFields, "discordId", meta.discordId)
+    for (const spec of OWNER_META_FIELDS) {
+        const value = meta[spec.key]
+        if (value === undefined) continue
+        if (value === null) {
+            unsetFields[spec.key] = 1
+            continue
+        }
+        setFields[spec.key] = value.trim()
+    }
 
     const update: UpdateQuery<OwnerTradesDoc> =
         Object.keys(unsetFields).length > 0
