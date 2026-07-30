@@ -143,7 +143,7 @@ const OwnerTradesSchema = new Schema({
 // Collection name becomes "trades" (mongoose pluralizes "trade")
 export const TradeModel = mongoose.model("trade", OwnerTradesSchema)
 
-function isNonNegativeNumber(value: unknown): value is number {
+function isZeroOrPositiveNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value) && value >= 0
 }
 
@@ -173,7 +173,7 @@ function parseItemRef(
 
     const item: ItemRef = { name: raw.name }
     if (raw.level !== undefined) {
-        if (!isNonNegativeNumber(raw.level)) {
+        if (!isZeroOrPositiveNumber(raw.level)) {
             return { ok: false, error: `${path}.level must be a non-negative number` }
         }
         item.level = raw.level
@@ -212,10 +212,10 @@ function parseTradeOffers(
         const raw = offer as Record<string, unknown>
         const itemResult = parseItemRef(raw.item, `${path}[${i}].item`)
         if (itemResult.ok === false) return { ok: false, error: itemResult.error }
-        if (!isNonNegativeNumber(raw.give)) {
+        if (!isZeroOrPositiveNumber(raw.give)) {
             return { ok: false, error: `${path}[${i}].give must be a non-negative number` }
         }
-        if (!isNonNegativeNumber(raw.receive)) {
+        if (!isZeroOrPositiveNumber(raw.receive)) {
             return { ok: false, error: `${path}[${i}].receive must be a non-negative number` }
         }
         if (raw.negotiable !== undefined && typeof raw.negotiable !== "boolean") {
@@ -247,7 +247,7 @@ function parseTradeSide(
     const tradeSide: TradeSide = {}
 
     if (raw.price !== undefined) {
-        if (!isNonNegativeNumber(raw.price)) {
+        if (!isZeroOrPositiveNumber(raw.price)) {
             return { ok: false, error: `${path}.price must be a non-negative number` }
         }
         tradeSide.price = raw.price
@@ -259,7 +259,7 @@ function parseTradeSide(
         tradeSide.priceNegotiable = raw.priceNegotiable
     }
     if (raw.quantity !== undefined) {
-        if (!isNonNegativeNumber(raw.quantity)) {
+        if (!isZeroOrPositiveNumber(raw.quantity)) {
             return { ok: false, error: `${path}.quantity must be a non-negative number` }
         }
         tradeSide.quantity = raw.quantity
