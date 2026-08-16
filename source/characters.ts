@@ -71,6 +71,31 @@ export async function getOwners(ids: string[]) {
     return characters
 }
 
+/**
+ * Map owner ids to their character names.
+ */
+export async function getCharacterNamesByOwners(owners: string[]): Promise<Map<string, string[]>> {
+    const map = new Map<string, string[]>()
+    if (owners.length === 0) return map
+
+    const players = await AL.PlayerModel.find(
+        { owner: { $in: owners } },
+        { name: true, owner: true, _id: false },
+    )
+        .lean()
+        .exec()
+
+    for (const player of players) {
+        const owner = player.owner as string | undefined
+        const name = player.name as string | undefined
+        if (!owner || !name) continue
+        const list = map.get(owner)
+        if (list) list.push(name)
+        else map.set(owner, [name])
+    }
+    return map
+}
+
 export async function updateCharacter(name: string, data: Partial<CharacterData> & { serverIdentifier?: ServerIdentifier, serverRegion?: ServerRegion }): Promise<void> {
     const update: UpdateQuery<IPlayerDocument> = {
         lastUpdated: Date.now()
