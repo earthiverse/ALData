@@ -12,6 +12,9 @@ const PRIVATE_MONSTERS: MonsterName[] = [
     // Very rare monsters
     "cutebee",
     "goldenbat",
+    "manyeye",
+    "mimic",
+    "paledino",
     // Crypt monsters
     "a1",
     "a2",
